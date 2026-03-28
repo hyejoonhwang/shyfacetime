@@ -295,11 +295,11 @@ function cleanUpCall() {
     p5Instance.remove();
     p5Instance = null;
   }
-  if (faceMesh) {
-    faceMeshReady = false;
-    faceMesh = null;
-  }
+  faceMeshReady = false;
+  faceMesh = null;
   trackVideo = null;
+  trackCanvas = null;
+  trackCtx = null;
   document.querySelectorAll('video[style*="display: none"], audio').forEach(el => {
     el.remove();
   });
@@ -313,38 +313,54 @@ function cleanUpCall() {
 // ============================================================
 
 let trackVideo = null;
+let trackCanvas = null;
+let trackCtx = null;
 let faceMeshReady = false;
 
 function startFaceMesh(stream) {
-  gazeDebug.textContent = 'loading face mesh model...';
+  gazeDebug.textContent = 'v3: loading face mesh model...';
+  console.log('startFaceMesh called');
 
-  // Use the visible local-video element directly
   trackVideo = document.getElementById('local-video');
+
+  // Create an offscreen canvas to capture frames — most reliable for faceMesh
+  trackCanvas = document.createElement('canvas');
+  trackCanvas.width = 320;
+  trackCanvas.height = 240;
+  trackCtx = trackCanvas.getContext('2d');
 
   faceMesh = ml5.faceMesh({
     maxFaces: 1,
     refineLandmarks: true,
     flipped: false
   }, () => {
-    console.log('FaceMesh model loaded');
+    console.log('FaceMesh model loaded, starting detect loop');
     faceMeshReady = true;
-    gazeDebug.textContent = 'model loaded, starting detection...';
-    // Use manual detection loop instead of detectStart for reliability
     detectLoop();
   });
 }
 
 function detectLoop() {
-  if (!faceMesh || !faceMeshReady || !trackVideo) return;
-  if (trackVideo.readyState >= 2) {
-    faceMesh.detect(trackVideo, (results) => {
-      onFaceResults(results);
-      requestAnimationFrame(detectLoop);
-    });
-  } else {
-    // Video not ready yet, retry
-    requestAnimationFrame(detectLoop);
+  if (!faceMesh || !faceMeshReady) {
+    gazeDebug.textContent = `stopped: mesh=${!!faceMesh} ready=${faceMeshReady}`;
+    return;
   }
+
+  const vid = trackVideo;
+  if (!vid || vid.readyState < 2 || vid.videoWidth === 0) {
+    gazeDebug.textContent = `waiting for video... readyState=${vid ? vid.readyState : 'null'} size=${vid ? vid.videoWidth : 0}`;
+    setTimeout(detectLoop, 200);
+    return;
+  }
+
+  // Draw current video frame to canvas
+  trackCtx.drawImage(vid, 0, 0, trackCanvas.width, trackCanvas.height);
+
+  // Detect on the canvas (works reliably across browsers)
+  faceMesh.detect(trackCanvas, (results) => {
+    onFaceResults(results);
+    requestAnimationFrame(detectLoop);
+  });
 }
 
 function onFaceResults(results) {
