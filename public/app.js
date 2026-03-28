@@ -465,7 +465,8 @@ function startP5() {
     let currentBlur = 40;
     let canvasW, canvasH;
 
-    let canvasEl; // the actual DOM canvas element
+    let canvasEl;
+    let useCtxFilter = false; // whether ctx.filter actually works
 
     p.setup = function () {
       canvasW = window.innerWidth;
@@ -488,6 +489,14 @@ function startP5() {
       audioEl.autoplay = true;
       document.body.appendChild(audioEl);
       audioEl.play().catch(e => console.error('Audio play error:', e));
+
+      // Test if ctx.filter actually works (it exists but is broken on some mobile browsers)
+      const testCanvas = document.createElement('canvas');
+      testCanvas.width = 1; testCanvas.height = 1;
+      const testCtx = testCanvas.getContext('2d');
+      testCtx.filter = 'blur(1px)';
+      useCtxFilter = (testCtx.filter === 'blur(1px)');
+      console.log('ctx.filter supported:', useCtxFilter);
     };
 
     p.draw = function () {
@@ -518,15 +527,30 @@ function startP5() {
       drawX = (canvasW - drawW) / 2;
       drawY = (canvasH - drawH) / 2;
 
-      // Draw video without blur on the canvas
-      p.drawingContext.drawImage(remoteVideo, drawX, drawY, drawW, drawH);
-
-      // Apply blur via CSS filter (works on all browsers including mobile Safari)
+      const ctx = p.drawingContext;
       const blurPx = Math.round(currentBlur);
-      if (blurPx > 0) {
-        canvasEl.style.filter = `blur(${blurPx}px) brightness(${p.map(currentBlur, 0, blurAmount, 1, 0.6)})`;
-      } else {
+
+      if (useCtxFilter) {
+        // Desktop: ctx.filter gives nicer per-pixel blur
         canvasEl.style.filter = 'none';
+        ctx.filter = blurPx > 0 ? `blur(${blurPx}px)` : 'none';
+        ctx.drawImage(remoteVideo, drawX, drawY, drawW, drawH);
+        ctx.filter = 'none';
+
+        if (currentBlur > 5) {
+          const alpha = p.map(currentBlur, 5, blurAmount, 0, 80);
+          p.noStroke();
+          p.fill(10, 10, 10, alpha);
+          p.rect(0, 0, canvasW, canvasH);
+        }
+      } else {
+        // Mobile fallback: CSS filter on canvas element
+        ctx.drawImage(remoteVideo, drawX, drawY, drawW, drawH);
+        if (blurPx > 0) {
+          canvasEl.style.filter = `blur(${blurPx}px) brightness(${p.map(currentBlur, 0, blurAmount, 1, 0.6)})`;
+        } else {
+          canvasEl.style.filter = 'none';
+        }
       }
     };
 
