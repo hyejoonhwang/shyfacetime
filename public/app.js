@@ -466,7 +466,9 @@ function startP5() {
     let canvasW, canvasH;
 
     let canvasEl;
-    let useCtxFilter = false; // whether ctx.filter actually works
+    let useCtxFilter = false;
+    let blurCanvas = null;
+    let blurCtx = null;
 
     p.setup = function () {
       canvasW = window.innerWidth;
@@ -490,13 +492,10 @@ function startP5() {
       document.body.appendChild(audioEl);
       audioEl.play().catch(e => console.error('Audio play error:', e));
 
-      // Test if ctx.filter actually works (it exists but is broken on some mobile browsers)
-      const testCanvas = document.createElement('canvas');
-      testCanvas.width = 1; testCanvas.height = 1;
-      const testCtx = testCanvas.getContext('2d');
-      testCtx.filter = 'blur(1px)';
-      useCtxFilter = (testCtx.filter === 'blur(1px)');
-      console.log('ctx.filter supported:', useCtxFilter);
+      // Mobile browsers claim ctx.filter support but don't actually apply it
+      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+      useCtxFilter = !isMobile;
+      console.log('Using ctx.filter:', useCtxFilter, 'mobile:', isMobile);
     };
 
     p.draw = function () {
@@ -554,25 +553,23 @@ function startP5() {
           const smallW = Math.max(2, Math.round(canvasW * scale));
           const smallH = Math.max(2, Math.round(canvasH * scale));
 
-          // Draw video to a tiny offscreen canvas
-          if (!this._blurCanvas) {
-            this._blurCanvas = document.createElement('canvas');
-            this._blurCtx = this._blurCanvas.getContext('2d');
+          if (!blurCanvas) {
+            blurCanvas = document.createElement('canvas');
+            blurCtx = blurCanvas.getContext('2d');
           }
-          this._blurCanvas.width = smallW;
-          this._blurCanvas.height = smallH;
+          blurCanvas.width = smallW;
+          blurCanvas.height = smallH;
 
-          // Smooth interpolation for the downscale
-          this._blurCtx.imageSmoothingEnabled = true;
-          this._blurCtx.imageSmoothingQuality = 'low';
-          this._blurCtx.drawImage(remoteVideo,
+          blurCtx.imageSmoothingEnabled = true;
+          blurCtx.imageSmoothingQuality = 'low';
+          blurCtx.drawImage(remoteVideo,
             (drawX / canvasW) * smallW, (drawY / canvasH) * smallH,
             (drawW / canvasW) * smallW, (drawH / canvasH) * smallH);
 
           // Draw it back up to full size — the upscale creates the blur
           ctx.imageSmoothingEnabled = true;
           ctx.imageSmoothingQuality = 'medium';
-          ctx.drawImage(this._blurCanvas, 0, 0, smallW, smallH, 0, 0, canvasW, canvasH);
+          ctx.drawImage(blurCanvas, 0, 0, smallW, smallH, 0, 0, canvasW, canvasH);
 
           // Dark overlay
           const alpha = p.map(currentBlur, 5, blurAmount, 0, 80);
