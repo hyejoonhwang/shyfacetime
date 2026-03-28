@@ -472,11 +472,14 @@ function startP5() {
     let currentBlur = 40;
     let canvasW, canvasH;
 
+    let canvasEl; // the actual DOM canvas element
+
     p.setup = function () {
       canvasW = window.innerWidth;
       canvasH = window.innerHeight;
       const canvas = p.createCanvas(canvasW, canvasH);
       canvas.parent('canvas-container');
+      canvasEl = canvas.elt;
 
       remoteVideo = document.createElement('video');
       remoteVideo.srcObject = remoteStream;
@@ -522,16 +525,15 @@ function startP5() {
       drawX = (canvasW - drawW) / 2;
       drawY = (canvasH - drawH) / 2;
 
-      const ctx = p.drawingContext;
-      ctx.filter = `blur(${Math.round(currentBlur)}px)`;
-      ctx.drawImage(remoteVideo, drawX, drawY, drawW, drawH);
-      ctx.filter = 'none';
+      // Draw video without blur on the canvas
+      p.drawingContext.drawImage(remoteVideo, drawX, drawY, drawW, drawH);
 
-      if (currentBlur > 5) {
-        const alpha = p.map(currentBlur, 5, blurAmount, 0, 80);
-        p.noStroke();
-        p.fill(10, 10, 10, alpha);
-        p.rect(0, 0, canvasW, canvasH);
+      // Apply blur via CSS filter (works on all browsers including mobile Safari)
+      const blurPx = Math.round(currentBlur);
+      if (blurPx > 0) {
+        canvasEl.style.filter = `blur(${blurPx}px) brightness(${p.map(currentBlur, 0, blurAmount, 1, 0.6)})`;
+      } else {
+        canvasEl.style.filter = 'none';
       }
     };
 
