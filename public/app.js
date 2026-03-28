@@ -482,7 +482,10 @@ function startP5() {
       remoteVideo.autoplay = true;
       remoteVideo.playsInline = true;
       remoteVideo.muted = true;
-      remoteVideo.style.display = 'none';
+      // Off-screen, not display:none (mobile won't decode hidden videos)
+      remoteVideo.style.position = 'fixed';
+      remoteVideo.style.left = '-9999px';
+      remoteVideo.style.top = '0';
       document.body.appendChild(remoteVideo);
       remoteVideo.play().catch(e => console.error('Video play error:', e));
 
@@ -543,15 +546,13 @@ function startP5() {
           p.rect(0, 0, canvasW, canvasH);
         }
       } else {
-        // Mobile fallback: downscale/upscale blur
+        // Mobile: downscale/upscale blur
         canvasEl.style.filter = 'none';
 
         if (blurPx > 2) {
-          // The smaller we draw, the blurrier it gets
-          // Map blur amount to a scale factor: 40px blur → ~1/20 scale, 0 → full scale
-          const scale = p.map(currentBlur, 0, blurAmount, 1, 0.04);
-          const smallW = Math.max(2, Math.round(canvasW * scale));
-          const smallH = Math.max(2, Math.round(canvasH * scale));
+          const scale = p.map(currentBlur, 0, blurAmount, 1, 0.03);
+          const smallW = Math.max(4, Math.round(canvasW * scale));
+          const smallH = Math.max(4, Math.round(canvasH * scale));
 
           if (!blurCanvas) {
             blurCanvas = document.createElement('canvas');
@@ -560,16 +561,13 @@ function startP5() {
           blurCanvas.width = smallW;
           blurCanvas.height = smallH;
 
-          blurCtx.imageSmoothingEnabled = true;
-          blurCtx.imageSmoothingQuality = 'low';
-          blurCtx.drawImage(remoteVideo,
-            (drawX / canvasW) * smallW, (drawY / canvasH) * smallH,
-            (drawW / canvasW) * smallW, (drawH / canvasH) * smallH);
+          // Draw video into tiny canvas (stretched to fill)
+          blurCtx.drawImage(remoteVideo, 0, 0, smallW, smallH);
 
-          // Draw it back up to full size — the upscale creates the blur
+          // Draw tiny canvas back to full size — upscaling = blur
           ctx.imageSmoothingEnabled = true;
           ctx.imageSmoothingQuality = 'medium';
-          ctx.drawImage(blurCanvas, 0, 0, smallW, smallH, 0, 0, canvasW, canvasH);
+          ctx.drawImage(blurCanvas, 0, 0, canvasW, canvasH);
 
           // Dark overlay
           const alpha = p.map(currentBlur, 5, blurAmount, 0, 80);
@@ -577,6 +575,7 @@ function startP5() {
           p.fill(10, 10, 10, alpha);
           p.rect(0, 0, canvasW, canvasH);
         } else {
+          // Near-clear: draw video normally
           ctx.drawImage(remoteVideo, drawX, drawY, drawW, drawH);
         }
       }
