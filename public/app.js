@@ -377,14 +377,7 @@ function onFaceResults(results) {
   if (!results || results.length === 0) {
     noFaceCount++;
     lookScore = 0;
-    gazeDebug.textContent = `no face (${noFaceCount}) flipped=${currentFlipped}`;
-
-    // If no face for 30 frames, try flipping
-    if (noFaceCount === 30) {
-      console.log('No face for 30 frames, trying flipped=' + !currentFlipped);
-      currentFlipped = !currentFlipped;
-      loadFaceMesh(currentFlipped);
-    }
+    gazeDebug.textContent = `v9: no face (${noFaceCount})`;
     return;
   }
   noFaceCount = 0;
