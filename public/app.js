@@ -544,12 +544,43 @@ function startP5() {
           p.rect(0, 0, canvasW, canvasH);
         }
       } else {
-        // Mobile fallback: CSS filter on canvas element
-        ctx.drawImage(remoteVideo, drawX, drawY, drawW, drawH);
-        if (blurPx > 0) {
-          canvasEl.style.filter = `blur(${blurPx}px) brightness(${p.map(currentBlur, 0, blurAmount, 1, 0.6)})`;
+        // Mobile fallback: downscale/upscale blur
+        canvasEl.style.filter = 'none';
+
+        if (blurPx > 2) {
+          // The smaller we draw, the blurrier it gets
+          // Map blur amount to a scale factor: 40px blur → ~1/20 scale, 0 → full scale
+          const scale = p.map(currentBlur, 0, blurAmount, 1, 0.04);
+          const smallW = Math.max(2, Math.round(canvasW * scale));
+          const smallH = Math.max(2, Math.round(canvasH * scale));
+
+          // Draw video to a tiny offscreen canvas
+          if (!this._blurCanvas) {
+            this._blurCanvas = document.createElement('canvas');
+            this._blurCtx = this._blurCanvas.getContext('2d');
+          }
+          this._blurCanvas.width = smallW;
+          this._blurCanvas.height = smallH;
+
+          // Smooth interpolation for the downscale
+          this._blurCtx.imageSmoothingEnabled = true;
+          this._blurCtx.imageSmoothingQuality = 'low';
+          this._blurCtx.drawImage(remoteVideo,
+            (drawX / canvasW) * smallW, (drawY / canvasH) * smallH,
+            (drawW / canvasW) * smallW, (drawH / canvasH) * smallH);
+
+          // Draw it back up to full size — the upscale creates the blur
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = 'medium';
+          ctx.drawImage(this._blurCanvas, 0, 0, smallW, smallH, 0, 0, canvasW, canvasH);
+
+          // Dark overlay
+          const alpha = p.map(currentBlur, 5, blurAmount, 0, 80);
+          p.noStroke();
+          p.fill(10, 10, 10, alpha);
+          p.rect(0, 0, canvasW, canvasH);
         } else {
-          canvasEl.style.filter = 'none';
+          ctx.drawImage(remoteVideo, drawX, drawY, drawW, drawH);
         }
       }
     };
