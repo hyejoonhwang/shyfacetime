@@ -300,11 +300,12 @@ function cleanUpCall() {
     faceMesh.detectStop();
     faceMesh = null;
   }
-  if (trackVideo) {
-    trackVideo.remove();
-    trackVideo = null;
+  if (frameLoopId) {
+    cancelAnimationFrame(frameLoopId);
+    frameLoopId = null;
   }
-  faceStream = null;
+  trackCanvas = null;
+  trackCtx = null;
   document.querySelectorAll('video[style*="display: none"], audio').forEach(el => {
     el.remove();
   });
@@ -317,70 +318,59 @@ function cleanUpCall() {
 // 5. FACE MESH (gaze detection)
 // ============================================================
 
-let trackVideo = null;
+let trackCanvas = null;
+let trackCtx = null;
 let faceMeshReady = false;
-let currentFlipped = false;
 let noFaceCount = 0;
-let faceStream = null;
+let frameLoopId = null;
 
 function startFaceMesh(stream) {
-  gazeDebug.textContent = 'v7: setting up...';
+  gazeDebug.textContent = 'v8: setting up...';
   console.log('startFaceMesh called');
-  faceStream = stream;
   noFaceCount = 0;
-  currentFlipped = false;
 
-  // Create a dedicated off-screen video element
-  trackVideo = document.createElement('video');
-  trackVideo.srcObject = stream;
-  trackVideo.autoplay = true;
-  trackVideo.playsInline = true;
-  trackVideo.muted = true;
-  trackVideo.width = 640;
-  trackVideo.height = 480;
-  trackVideo.style.position = 'fixed';
-  trackVideo.style.left = '-9999px';
-  trackVideo.style.top = '0';
-  document.body.appendChild(trackVideo);
+  // Create a canvas that we'll continuously draw the local video to
+  trackCanvas = document.createElement('canvas');
+  trackCanvas.width = 320;
+  trackCanvas.height = 240;
+  trackCtx = trackCanvas.getContext('2d', { willReadFrequently: true });
 
-  trackVideo.play().then(() => {
-    console.log('Track video playing:', trackVideo.videoWidth, 'x', trackVideo.videoHeight);
-    waitForVideo();
-  }).catch(err => {
-    console.error('Track video play error:', err);
-    gazeDebug.textContent = 'v7: play error: ' + err.message;
-  });
+  const localVid = document.getElementById('local-video');
 
+  // Continuously draw local video frames to the canvas
+  function drawFrame() {
+    if (!trackCanvas) return;
+    if (localVid.readyState >= 2) {
+      trackCtx.drawImage(localVid, 0, 0, 320, 240);
+    }
+    frameLoopId = requestAnimationFrame(drawFrame);
+  }
+
+  // Wait for local video to be ready, then load model
   function waitForVideo() {
-    if (trackVideo && trackVideo.readyState >= 2 && trackVideo.videoWidth > 0) {
-      gazeDebug.textContent = `v7: video ${trackVideo.videoWidth}x${trackVideo.videoHeight}, loading model...`;
-      loadFaceMesh(currentFlipped);
+    if (localVid.readyState >= 2 && localVid.videoWidth > 0) {
+      console.log('Local video ready:', localVid.videoWidth, 'x', localVid.videoHeight);
+      gazeDebug.textContent = `v8: video ready, loading model...`;
+
+      // Start drawing frames to canvas
+      drawFrame();
+
+      faceMesh = ml5.faceMesh({
+        maxFaces: 1,
+        refineLandmarks: true,
+        flipped: false
+      }, () => {
+        console.log('FaceMesh loaded, starting detectStart on canvas');
+        faceMeshReady = true;
+        gazeDebug.textContent = 'v8: detecting...';
+        faceMesh.detectStart(trackCanvas, onFaceResults);
+      });
     } else {
-      gazeDebug.textContent = `v7: waiting for video...`;
+      gazeDebug.textContent = `v8: waiting for video... rs=${localVid.readyState}`;
       setTimeout(waitForVideo, 300);
     }
   }
-}
-
-function loadFaceMesh(flipped) {
-  console.log('Loading faceMesh with flipped:', flipped);
-  if (faceMesh) {
-    faceMesh.detectStop();
-    faceMesh = null;
-  }
-  faceMeshReady = false;
-  noFaceCount = 0;
-
-  faceMesh = ml5.faceMesh({
-    maxFaces: 1,
-    refineLandmarks: true,
-    flipped: flipped
-  }, () => {
-    console.log('FaceMesh loaded (flipped=' + flipped + '), starting detection');
-    faceMeshReady = true;
-    gazeDebug.textContent = `v7: detecting (flipped=${flipped})...`;
-    faceMesh.detectStart(trackVideo, onFaceResults);
-  });
+  waitForVideo();
 }
 
 function onFaceResults(results) {
