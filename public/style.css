@@ -1,0 +1,264 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  background: #0a0a0a;
+  color: #e0e0e0;
+  font-family: 'Helvetica Neue', Arial, sans-serif;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.screen {
+  display: none;
+  width: 100vw;
+  height: 100vh;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.screen.active {
+  display: flex;
+}
+
+/* --- Login screen --- */
+#login-screen h1 {
+  font-size: clamp(1.8rem, 6vw, 3rem);
+  font-weight: 200;
+  letter-spacing: 0.3em;
+  text-transform: lowercase;
+  margin-bottom: 0.5rem;
+}
+
+.subtitle {
+  font-size: 0.9rem;
+  color: #666;
+  text-align: center;
+  margin-bottom: 2rem;
+  line-height: 1.6;
+}
+
+#google-signin-btn {
+  padding: 0.8rem 2rem;
+  font-size: 1rem;
+}
+
+button {
+  background: #1a1a1a;
+  border: 1px solid #333;
+  color: #e0e0e0;
+  padding: 0.7rem 1.5rem;
+  font-size: 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+button:hover {
+  background: #2a2a2a;
+}
+
+/* --- Waiting room --- */
+#waiting-screen {
+  justify-content: flex-start;
+  padding-top: 40px;
+}
+
+#waiting-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 2rem;
+}
+
+#waiting-header h2 {
+  font-size: 1.5rem;
+  font-weight: 300;
+  letter-spacing: 0.2em;
+}
+
+#my-profile {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-top: 0.5rem;
+}
+
+#my-photo {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+}
+
+#my-name {
+  font-size: 0.9rem;
+  color: #aaa;
+}
+
+#signout-btn {
+  font-size: 0.75rem;
+  padding: 0.3rem 0.8rem;
+  color: #888;
+  border-color: #2a2a2a;
+}
+
+#user-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  width: min(340px, 90vw);
+  max-height: 500px;
+  overflow-y: auto;
+}
+
+.user-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #141414;
+  border: 1px solid #222;
+  padding: 0.7rem 1rem;
+  border-radius: 4px;
+}
+
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.user-photo {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+}
+
+.user-card .name {
+  font-size: 0.95rem;
+}
+
+.user-card button {
+  font-size: 0.8rem;
+  padding: 0.4rem 1rem;
+}
+
+.user-card.self {
+  border-color: #333;
+  opacity: 0.5;
+}
+
+/* --- Incoming call modal --- */
+.modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: #1a1a1a;
+  border: 1px solid #333;
+  padding: 2rem;
+  border-radius: 8px;
+  text-align: center;
+  z-index: 100;
+}
+
+#caller-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.8rem;
+  margin-bottom: 1.5rem;
+}
+
+#caller-photo {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+}
+
+#caller-info p {
+  font-size: 1.1rem;
+}
+
+.modal-buttons {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+}
+
+#accept-btn {
+  border-color: #4a4;
+}
+
+#accept-btn:hover {
+  background: #1a2a1a;
+}
+
+#decline-btn {
+  border-color: #a44;
+}
+
+#decline-btn:hover {
+  background: #2a1a1a;
+}
+
+.hidden {
+  display: none !important;
+}
+
+/* --- Call screen --- */
+#call-screen {
+  position: relative;
+}
+
+#canvas-container {
+  width: 100vw;
+  height: 100vh;
+}
+
+#canvas-container canvas {
+  display: block;
+}
+
+#local-video {
+  position: fixed;
+  bottom: 80px;
+  right: 12px;
+  width: min(180px, 30vw);
+  border-radius: 8px;
+  border: 1px solid #333;
+  z-index: 10;
+}
+
+#call-controls {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+}
+
+#hangup-btn {
+  border-color: #a44;
+  padding: 0.7rem 2rem;
+}
+
+#hangup-btn:hover {
+  background: #2a1a1a;
+}
+
+#gaze-debug {
+  position: fixed;
+  top: 10px;
+  left: 10px;
+  font-size: 0.85rem;
+  color: #fff;
+  background: rgba(0,0,0,0.7);
+  padding: 6px 10px;
+  border-radius: 4px;
+  z-index: 9999;
+}
