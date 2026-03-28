@@ -296,11 +296,15 @@ function cleanUpCall() {
     p5Instance = null;
   }
   faceMeshReady = false;
-  faceMesh = null;
+  if (faceMesh) {
+    faceMesh.detectStop();
+    faceMesh = null;
+  }
   if (trackVideo) {
     trackVideo.remove();
     trackVideo = null;
   }
+  faceStream = null;
   document.querySelectorAll('video[style*="display: none"], audio').forEach(el => {
     el.remove();
   });
@@ -315,12 +319,18 @@ function cleanUpCall() {
 
 let trackVideo = null;
 let faceMeshReady = false;
+let currentFlipped = false;
+let noFaceCount = 0;
+let faceStream = null;
 
 function startFaceMesh(stream) {
-  gazeDebug.textContent = 'v5: setting up tracking video...';
+  gazeDebug.textContent = 'v7: setting up...';
   console.log('startFaceMesh called');
+  faceStream = stream;
+  noFaceCount = 0;
+  currentFlipped = false;
 
-  // Create a dedicated off-screen video element at proper resolution
+  // Create a dedicated off-screen video element
   trackVideo = document.createElement('video');
   trackVideo.srcObject = stream;
   trackVideo.autoplay = true;
@@ -328,7 +338,6 @@ function startFaceMesh(stream) {
   trackVideo.muted = true;
   trackVideo.width = 640;
   trackVideo.height = 480;
-  // Position off-screen (not hidden — browser must render frames)
   trackVideo.style.position = 'fixed';
   trackVideo.style.left = '-9999px';
   trackVideo.style.top = '0';
@@ -339,38 +348,56 @@ function startFaceMesh(stream) {
     waitForVideo();
   }).catch(err => {
     console.error('Track video play error:', err);
-    gazeDebug.textContent = 'v5: play error: ' + err.message;
+    gazeDebug.textContent = 'v7: play error: ' + err.message;
   });
 
   function waitForVideo() {
-    if (trackVideo.readyState >= 2 && trackVideo.videoWidth > 0) {
-      gazeDebug.textContent = `v5: video ready (${trackVideo.videoWidth}x${trackVideo.videoHeight}), loading model...`;
-      console.log('Video ready, loading faceMesh');
-
-      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-      faceMesh = ml5.faceMesh({
-        maxFaces: 1,
-        refineLandmarks: true,
-        flipped: isMobile
-      }, () => {
-        console.log('FaceMesh model loaded, calling detectStart');
-        faceMeshReady = true;
-        gazeDebug.textContent = 'v5: detecting...';
-        faceMesh.detectStart(trackVideo, onFaceResults);
-      });
+    if (trackVideo && trackVideo.readyState >= 2 && trackVideo.videoWidth > 0) {
+      gazeDebug.textContent = `v7: video ${trackVideo.videoWidth}x${trackVideo.videoHeight}, loading model...`;
+      loadFaceMesh(currentFlipped);
     } else {
-      gazeDebug.textContent = `v5: waiting... rs=${trackVideo.readyState} w=${trackVideo.videoWidth}`;
+      gazeDebug.textContent = `v7: waiting for video...`;
       setTimeout(waitForVideo, 300);
     }
   }
 }
 
+function loadFaceMesh(flipped) {
+  console.log('Loading faceMesh with flipped:', flipped);
+  if (faceMesh) {
+    faceMesh.detectStop();
+    faceMesh = null;
+  }
+  faceMeshReady = false;
+  noFaceCount = 0;
+
+  faceMesh = ml5.faceMesh({
+    maxFaces: 1,
+    refineLandmarks: true,
+    flipped: flipped
+  }, () => {
+    console.log('FaceMesh loaded (flipped=' + flipped + '), starting detection');
+    faceMeshReady = true;
+    gazeDebug.textContent = `v7: detecting (flipped=${flipped})...`;
+    faceMesh.detectStart(trackVideo, onFaceResults);
+  });
+}
+
 function onFaceResults(results) {
   if (!results || results.length === 0) {
+    noFaceCount++;
     lookScore = 0;
-    gazeDebug.textContent = 'gaze: no face detected → look: 0';
+    gazeDebug.textContent = `no face (${noFaceCount}) flipped=${currentFlipped}`;
+
+    // If no face for 30 frames, try flipping
+    if (noFaceCount === 30) {
+      console.log('No face for 30 frames, trying flipped=' + !currentFlipped);
+      currentFlipped = !currentFlipped;
+      loadFaceMesh(currentFlipped);
+    }
     return;
   }
+  noFaceCount = 0;
 
   const kp = results[0].keypoints;
   const hasIris = kp.length > 468;
