@@ -347,10 +347,11 @@ function startFaceMesh(stream) {
       gazeDebug.textContent = `v5: video ready (${trackVideo.videoWidth}x${trackVideo.videoHeight}), loading model...`;
       console.log('Video ready, loading faceMesh');
 
+      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
       faceMesh = ml5.faceMesh({
         maxFaces: 1,
         refineLandmarks: true,
-        flipped: false
+        flipped: isMobile
       }, () => {
         console.log('FaceMesh model loaded, calling detectStart');
         faceMeshReady = true;
