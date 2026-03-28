@@ -296,6 +296,7 @@ function cleanUpCall() {
     p5Instance = null;
   }
   faceMeshReady = false;
+  if (watchdogId) { clearInterval(watchdogId); watchdogId = null; }
   if (faceMesh) {
     faceMesh.detectStop();
     faceMesh = null;
@@ -323,13 +324,15 @@ let trackCtx = null;
 let faceMeshReady = false;
 let noFaceCount = 0;
 let frameLoopId = null;
+let lastResultTime = 0;
+let watchdogId = null;
 
 function startFaceMesh(stream) {
-  gazeDebug.textContent = 'v8: setting up...';
+  gazeDebug.textContent = 'setting up...';
   console.log('startFaceMesh called');
   noFaceCount = 0;
+  lastResultTime = 0;
 
-  // Create a canvas that we'll continuously draw the local video to
   trackCanvas = document.createElement('canvas');
   trackCanvas.width = 320;
   trackCanvas.height = 240;
@@ -337,7 +340,6 @@ function startFaceMesh(stream) {
 
   const localVid = document.getElementById('local-video');
 
-  // Continuously draw local video frames to the canvas
   function drawFrame() {
     if (!trackCanvas) return;
     if (localVid.readyState >= 2) {
@@ -346,38 +348,67 @@ function startFaceMesh(stream) {
     frameLoopId = requestAnimationFrame(drawFrame);
   }
 
-  // Wait for local video to be ready, then load model
   function waitForVideo() {
     if (localVid.readyState >= 2 && localVid.videoWidth > 0) {
       console.log('Local video ready:', localVid.videoWidth, 'x', localVid.videoHeight);
-      gazeDebug.textContent = `v8: video ready, loading model...`;
+      gazeDebug.textContent = 'video ready, loading model...';
 
-      // Start drawing frames to canvas
+      // Draw several frames first so canvas has data
       drawFrame();
 
-      faceMesh = ml5.faceMesh({
-        maxFaces: 1,
-        refineLandmarks: true,
-        flipped: false
-      }, () => {
-        console.log('FaceMesh loaded, starting detectStart on canvas');
-        faceMeshReady = true;
-        gazeDebug.textContent = 'v8: detecting...';
-        faceMesh.detectStart(trackCanvas, onFaceResults);
-      });
+      // Small delay to ensure canvas has real frames before model starts
+      setTimeout(() => {
+        faceMesh = ml5.faceMesh({
+          maxFaces: 1,
+          refineLandmarks: true,
+          flipped: false
+        }, () => {
+          console.log('FaceMesh loaded, starting detection');
+          faceMeshReady = true;
+          startDetection();
+        });
+      }, 500);
     } else {
-      gazeDebug.textContent = `v8: waiting for video... rs=${localVid.readyState}`;
+      gazeDebug.textContent = `waiting for video... rs=${localVid.readyState}`;
       setTimeout(waitForVideo, 300);
     }
   }
+
+  function startDetection() {
+    if (!faceMesh || !faceMeshReady) return;
+    lastResultTime = Date.now();
+    gazeDebug.textContent = 'detecting...';
+    console.log('Starting detectStart');
+    faceMesh.detectStart(trackCanvas, onFaceResults);
+
+    // Watchdog: if no results for 3 seconds, restart detection
+    clearInterval(watchdogId);
+    watchdogId = setInterval(() => {
+      if (!faceMeshReady) { clearInterval(watchdogId); return; }
+      const elapsed = Date.now() - lastResultTime;
+      if (elapsed > 3000) {
+        console.log('Watchdog: no results for 3s, restarting detection');
+        gazeDebug.textContent = 'restarting detection...';
+        faceMesh.detectStop();
+        setTimeout(() => {
+          lastResultTime = Date.now();
+          faceMesh.detectStart(trackCanvas, onFaceResults);
+          console.log('Detection restarted');
+        }, 500);
+      }
+    }, 2000);
+  }
+
   waitForVideo();
 }
 
 function onFaceResults(results) {
+  lastResultTime = Date.now();
+
   if (!results || results.length === 0) {
     noFaceCount++;
     lookScore = 0;
-    gazeDebug.textContent = `v9: no face (${noFaceCount})`;
+    gazeDebug.textContent = `no face (${noFaceCount})`;
     return;
   }
   noFaceCount = 0;
