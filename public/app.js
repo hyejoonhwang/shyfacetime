@@ -297,9 +297,10 @@ function cleanUpCall() {
   }
   faceMeshReady = false;
   faceMesh = null;
-  trackVideo = null;
-  trackCanvas = null;
-  trackCtx = null;
+  if (trackVideo) {
+    trackVideo.remove();
+    trackVideo = null;
+  }
   document.querySelectorAll('video[style*="display: none"], audio').forEach(el => {
     el.remove();
   });
@@ -313,44 +314,54 @@ function cleanUpCall() {
 // ============================================================
 
 let trackVideo = null;
-let trackCanvas = null;
-let trackCtx = null;
 let faceMeshReady = false;
 
 function startFaceMesh(stream) {
-  gazeDebug.textContent = 'v3: loading face mesh model...';
+  gazeDebug.textContent = 'v5: setting up tracking video...';
   console.log('startFaceMesh called');
 
-  trackVideo = document.getElementById('local-video');
+  // Create a dedicated off-screen video element at proper resolution
+  trackVideo = document.createElement('video');
+  trackVideo.srcObject = stream;
+  trackVideo.autoplay = true;
+  trackVideo.playsInline = true;
+  trackVideo.muted = true;
+  trackVideo.width = 640;
+  trackVideo.height = 480;
+  // Position off-screen (not hidden — browser must render frames)
+  trackVideo.style.position = 'fixed';
+  trackVideo.style.left = '-9999px';
+  trackVideo.style.top = '0';
+  document.body.appendChild(trackVideo);
 
-  // Create an offscreen canvas to capture frames — most reliable for faceMesh
-  trackCanvas = document.createElement('canvas');
-  trackCanvas.width = 320;
-  trackCanvas.height = 240;
-  trackCtx = trackCanvas.getContext('2d');
+  trackVideo.play().then(() => {
+    console.log('Track video playing:', trackVideo.videoWidth, 'x', trackVideo.videoHeight);
+    waitForVideo();
+  }).catch(err => {
+    console.error('Track video play error:', err);
+    gazeDebug.textContent = 'v5: play error: ' + err.message;
+  });
 
-  // Wait for video to be playing before starting detection
   function waitForVideo() {
     if (trackVideo.readyState >= 2 && trackVideo.videoWidth > 0) {
-      gazeDebug.textContent = 'v4: video ready, loading model...';
-      console.log('Video ready, loading faceMesh model');
+      gazeDebug.textContent = `v5: video ready (${trackVideo.videoWidth}x${trackVideo.videoHeight}), loading model...`;
+      console.log('Video ready, loading faceMesh');
 
       faceMesh = ml5.faceMesh({
         maxFaces: 1,
         refineLandmarks: true,
         flipped: false
       }, () => {
-        console.log('FaceMesh model loaded, starting detectStart');
+        console.log('FaceMesh model loaded, calling detectStart');
         faceMeshReady = true;
-        gazeDebug.textContent = 'v4: model loaded, detecting...';
+        gazeDebug.textContent = 'v5: detecting...';
         faceMesh.detectStart(trackVideo, onFaceResults);
       });
     } else {
-      gazeDebug.textContent = `v4: waiting for video... rs=${trackVideo.readyState}`;
+      gazeDebug.textContent = `v5: waiting... rs=${trackVideo.readyState} w=${trackVideo.videoWidth}`;
       setTimeout(waitForVideo, 300);
     }
   }
-  waitForVideo();
 }
 
 function onFaceResults(results) {
