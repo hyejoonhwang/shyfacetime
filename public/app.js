@@ -456,105 +456,6 @@ function onFaceResults(results) {
 // 6. P5 CANVAS — the core experience
 // ============================================================
 
-// --- WebGL Blur helper (for mobile) ---
-function createGLBlur(canvas) {
-  const gl = canvas.getContext('webgl');
-  if (!gl) return null;
-
-  const vs = `
-    attribute vec2 a_pos;
-    varying vec2 v_uv;
-    void main() {
-      v_uv = a_pos * 0.5 + 0.5;
-      gl_Position = vec4(a_pos, 0.0, 1.0);
-    }`;
-
-  const fs = `
-    precision mediump float;
-    varying vec2 v_uv;
-    uniform sampler2D u_tex;
-    uniform vec2 u_dir;
-    uniform float u_radius;
-    void main() {
-      vec4 sum = vec4(0.0);
-      float total = 0.0;
-      for (float i = -10.0; i <= 10.0; i += 1.0) {
-        if (abs(i) > u_radius) continue;
-        float w = exp(-0.5 * (i * i) / max(u_radius * u_radius * 0.16, 0.1));
-        sum += texture2D(u_tex, v_uv + u_dir * i) * w;
-        total += w;
-      }
-      gl_FragColor = sum / total;
-    }`;
-
-  function compileShader(src, type) {
-    const s = gl.createShader(type);
-    gl.shaderSource(s, src);
-    gl.compileShader(s);
-    return s;
-  }
-
-  const prog = gl.createProgram();
-  gl.attachShader(prog, compileShader(vs, gl.VERTEX_SHADER));
-  gl.attachShader(prog, compileShader(fs, gl.FRAGMENT_SHADER));
-  gl.linkProgram(prog);
-  gl.useProgram(prog);
-
-  const buf = gl.createBuffer();
-  gl.bindBuffer(gl.ARRAY_BUFFER, buf);
-  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
-  const aPos = gl.getAttribLocation(prog, 'a_pos');
-  gl.enableVertexAttribArray(aPos);
-  gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
-
-  const uDir = gl.getUniformLocation(prog, 'u_dir');
-  const uRadius = gl.getUniformLocation(prog, 'u_radius');
-
-  // Two textures + framebuffer for two-pass blur
-  const texA = gl.createTexture();
-  const texB = gl.createTexture();
-  const fb = gl.createFramebuffer();
-
-  function initTex(tex) {
-    gl.bindTexture(gl.TEXTURE_2D, tex);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-  }
-  initTex(texA);
-  initTex(texB);
-
-  return function blur(video, radius) {
-    const w = canvas.width;
-    const h = canvas.height;
-    gl.viewport(0, 0, w, h);
-
-    // Upload video to texA (flip Y so it's right-side up)
-    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
-    gl.bindTexture(gl.TEXTURE_2D, texA);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, video);
-
-    // Pass 1: horizontal blur → texB via framebuffer
-    gl.bindTexture(gl.TEXTURE_2D, texB);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
-    gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
-    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texB, 0);
-
-    gl.bindTexture(gl.TEXTURE_2D, texA);
-    gl.uniform2f(uDir, radius / w, 0.0);
-    gl.uniform1f(uRadius, radius);
-    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-
-    // Pass 2: vertical blur → screen
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-    gl.bindTexture(gl.TEXTURE_2D, texB);
-    gl.uniform2f(uDir, 0.0, radius / h);
-    gl.uniform1f(uRadius, radius);
-    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-  };
-}
-
 function startP5() {
   if (p5Instance) return;
 
@@ -565,10 +466,6 @@ function startP5() {
     let canvasW, canvasH;
     let canvasEl;
     let isMobile = false;
-
-    // WebGL blur for mobile
-    let glCanvas = null;
-    let glBlur = null;
 
     p.setup = function () {
       canvasW = window.innerWidth;
@@ -595,15 +492,6 @@ function startP5() {
       audioEl.play().catch(e => console.error('Audio play error:', e));
 
       isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-
-      if (isMobile) {
-        // Create a separate WebGL canvas for blur
-        glCanvas = document.createElement('canvas');
-        glCanvas.width = canvasW;
-        glCanvas.height = canvasH;
-        glBlur = createGLBlur(glCanvas);
-        console.log('WebGL blur initialized:', !!glBlur);
-      }
     };
 
     p.draw = function () {
@@ -620,22 +508,22 @@ function startP5() {
       const targetBlur = lookScore * blurAmount;
       currentBlur = p.lerp(currentBlur, targetBlur, 0.12);
 
+      const videoRatio = remoteVideo.videoWidth / remoteVideo.videoHeight;
+      const canvasRatio = canvasW / canvasH;
+      let drawW, drawH, drawX, drawY;
+      if (videoRatio > canvasRatio) {
+        drawH = canvasH; drawW = canvasH * videoRatio;
+      } else {
+        drawW = canvasW; drawH = canvasW / videoRatio;
+      }
+      drawX = (canvasW - drawW) / 2;
+      drawY = (canvasH - drawH) / 2;
+
       const ctx = p.drawingContext;
       const blurPx = Math.round(currentBlur);
 
       if (!isMobile) {
-        // Desktop: ctx.filter
-        const videoRatio = remoteVideo.videoWidth / remoteVideo.videoHeight;
-        const canvasRatio = canvasW / canvasH;
-        let drawW, drawH, drawX, drawY;
-        if (videoRatio > canvasRatio) {
-          drawH = canvasH; drawW = canvasH * videoRatio;
-        } else {
-          drawW = canvasW; drawH = canvasW / videoRatio;
-        }
-        drawX = (canvasW - drawW) / 2;
-        drawY = (canvasH - drawH) / 2;
-
+        // Desktop: ctx.filter (per-pixel blur)
         canvasEl.style.filter = 'none';
         ctx.filter = blurPx > 0 ? `blur(${blurPx}px)` : 'none';
         ctx.drawImage(remoteVideo, drawX, drawY, drawW, drawH);
@@ -647,18 +535,13 @@ function startP5() {
           p.fill(10, 10, 10, alpha);
           p.rect(0, 0, canvasW, canvasH);
         }
-      } else if (glBlur) {
-        // Mobile: WebGL gaussian blur
-        glBlur(remoteVideo, blurPx);
-
-        // Draw the WebGL result onto the p5 canvas
-        ctx.drawImage(glCanvas, 0, 0, canvasW, canvasH);
-
-        if (currentBlur > 5) {
-          const alpha = p.map(currentBlur, 5, blurAmount, 0, 80);
-          p.noStroke();
-          p.fill(10, 10, 10, alpha);
-          p.rect(0, 0, canvasW, canvasH);
+      } else {
+        // Mobile: draw video, apply CSS blur to canvas element
+        ctx.drawImage(remoteVideo, drawX, drawY, drawW, drawH);
+        if (blurPx > 0) {
+          canvasEl.style.filter = `blur(${blurPx}px) brightness(${p.map(currentBlur, 0, blurAmount, 1, 0.6)})`;
+        } else {
+          canvasEl.style.filter = 'none';
         }
       }
     };
@@ -667,10 +550,6 @@ function startP5() {
       canvasW = window.innerWidth;
       canvasH = window.innerHeight;
       p.resizeCanvas(canvasW, canvasH);
-      if (glCanvas) {
-        glCanvas.width = canvasW;
-        glCanvas.height = canvasH;
-      }
     };
   });
 }
