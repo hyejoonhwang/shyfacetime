@@ -329,38 +329,28 @@ function startFaceMesh(stream) {
   trackCanvas.height = 240;
   trackCtx = trackCanvas.getContext('2d');
 
-  faceMesh = ml5.faceMesh({
-    maxFaces: 1,
-    refineLandmarks: true,
-    flipped: false
-  }, () => {
-    console.log('FaceMesh model loaded, starting detect loop');
-    faceMeshReady = true;
-    detectLoop();
-  });
-}
+  // Wait for video to be playing before starting detection
+  function waitForVideo() {
+    if (trackVideo.readyState >= 2 && trackVideo.videoWidth > 0) {
+      gazeDebug.textContent = 'v4: video ready, loading model...';
+      console.log('Video ready, loading faceMesh model');
 
-function detectLoop() {
-  if (!faceMesh || !faceMeshReady) {
-    gazeDebug.textContent = `stopped: mesh=${!!faceMesh} ready=${faceMeshReady}`;
-    return;
+      faceMesh = ml5.faceMesh({
+        maxFaces: 1,
+        refineLandmarks: true,
+        flipped: false
+      }, () => {
+        console.log('FaceMesh model loaded, starting detectStart');
+        faceMeshReady = true;
+        gazeDebug.textContent = 'v4: model loaded, detecting...';
+        faceMesh.detectStart(trackVideo, onFaceResults);
+      });
+    } else {
+      gazeDebug.textContent = `v4: waiting for video... rs=${trackVideo.readyState}`;
+      setTimeout(waitForVideo, 300);
+    }
   }
-
-  const vid = trackVideo;
-  if (!vid || vid.readyState < 2 || vid.videoWidth === 0) {
-    gazeDebug.textContent = `waiting for video... readyState=${vid ? vid.readyState : 'null'} size=${vid ? vid.videoWidth : 0}`;
-    setTimeout(detectLoop, 200);
-    return;
-  }
-
-  // Draw current video frame to canvas
-  trackCtx.drawImage(vid, 0, 0, trackCanvas.width, trackCanvas.height);
-
-  // Detect on the canvas (works reliably across browsers)
-  faceMesh.detect(trackCanvas, (results) => {
-    onFaceResults(results);
-    requestAnimationFrame(detectLoop);
-  });
+  waitForVideo();
 }
 
 function onFaceResults(results) {
