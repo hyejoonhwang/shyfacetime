@@ -6,7 +6,15 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
-app.use(express.static('public'));
+// No caching for development — forces browser to always fetch fresh files
+app.use(express.static('public', {
+  etag: false,
+  lastModified: false,
+  setHeaders: (res) => {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+  }
+}));
 
 // Track connected users waiting for a call
 const waitingUsers = new Map(); // socketId -> { name }

@@ -466,7 +466,6 @@ function createGLBlur(canvas) {
     varying vec2 v_uv;
     void main() {
       v_uv = a_pos * 0.5 + 0.5;
-      v_uv.y = 1.0 - v_uv.y;
       gl_Position = vec4(a_pos, 0.0, 1.0);
     }`;
 
@@ -479,7 +478,7 @@ function createGLBlur(canvas) {
     void main() {
       vec4 sum = vec4(0.0);
       float total = 0.0;
-      for (float i = -20.0; i <= 20.0; i += 1.0) {
+      for (float i = -10.0; i <= 10.0; i += 1.0) {
         if (abs(i) > u_radius) continue;
         float w = exp(-0.5 * (i * i) / max(u_radius * u_radius * 0.16, 0.1));
         sum += texture2D(u_tex, v_uv + u_dir * i) * w;
@@ -531,7 +530,8 @@ function createGLBlur(canvas) {
     const h = canvas.height;
     gl.viewport(0, 0, w, h);
 
-    // Upload video to texA
+    // Upload video to texA (flip Y so it's right-side up)
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
     gl.bindTexture(gl.TEXTURE_2D, texA);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, video);
 
