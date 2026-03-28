@@ -296,13 +296,10 @@ function cleanUpCall() {
     p5Instance = null;
   }
   if (faceMesh) {
-    faceMesh.detectStop();
+    faceMeshReady = false;
     faceMesh = null;
   }
-  if (trackVideo) {
-    trackVideo.remove();
-    trackVideo = null;
-  }
+  trackVideo = null;
   document.querySelectorAll('video[style*="display: none"], audio').forEach(el => {
     el.remove();
   });
@@ -316,42 +313,38 @@ function cleanUpCall() {
 // ============================================================
 
 let trackVideo = null;
+let faceMeshReady = false;
 
 function startFaceMesh(stream) {
   gazeDebug.textContent = 'loading face mesh model...';
 
-  trackVideo = document.createElement('video');
-  trackVideo.srcObject = stream;
-  trackVideo.autoplay = true;
-  trackVideo.playsInline = true;
-  trackVideo.muted = true;
-  trackVideo.setAttribute('width', 640);
-  trackVideo.setAttribute('height', 480);
-  trackVideo.style.position = 'fixed';
-  trackVideo.style.bottom = '0';
-  trackVideo.style.left = '0';
-  trackVideo.style.opacity = '0.001';
-  trackVideo.style.pointerEvents = 'none';
-  trackVideo.style.zIndex = '-1';
-  document.body.appendChild(trackVideo);
+  // Use the visible local-video element directly
+  trackVideo = document.getElementById('local-video');
 
-  trackVideo.play().then(() => {
-    console.log('Tracking video playing, loading model...');
-    gazeDebug.textContent = 'video ready, loading model...';
-
-    faceMesh = ml5.faceMesh({
-      maxFaces: 1,
-      refineLandmarks: true,
-      flipped: false
-    }, () => {
-      console.log('FaceMesh model loaded, starting detection');
-      gazeDebug.textContent = 'model loaded, detecting...';
-      faceMesh.detectStart(trackVideo, onFaceResults);
-    });
-  }).catch(err => {
-    console.error('Track video play error:', err);
-    gazeDebug.textContent = 'error: ' + err.message;
+  faceMesh = ml5.faceMesh({
+    maxFaces: 1,
+    refineLandmarks: true,
+    flipped: false
+  }, () => {
+    console.log('FaceMesh model loaded');
+    faceMeshReady = true;
+    gazeDebug.textContent = 'model loaded, starting detection...';
+    // Use manual detection loop instead of detectStart for reliability
+    detectLoop();
   });
+}
+
+function detectLoop() {
+  if (!faceMesh || !faceMeshReady || !trackVideo) return;
+  if (trackVideo.readyState >= 2) {
+    faceMesh.detect(trackVideo, (results) => {
+      onFaceResults(results);
+      requestAnimationFrame(detectLoop);
+    });
+  } else {
+    // Video not ready yet, retry
+    requestAnimationFrame(detectLoop);
+  }
 }
 
 function onFaceResults(results) {
