@@ -291,19 +291,27 @@ function startFaceMesh(stream) {
       drawFrame();
 
       setTimeout(() => {
-        let modelLoaded = false;
+        console.log('Creating faceMesh...');
         faceMesh = ml5.faceMesh({
           maxFaces: 1,
           refineLandmarks: true,
           flipped: false
-        }, () => {
-          // Guard: ml5 can fire this callback multiple times
-          if (modelLoaded) return;
-          modelLoaded = true;
-          console.log('FaceMesh loaded, starting detection');
-          faceMeshReady = true;
-          startDetection();
         });
+
+        // Poll for model readiness instead of relying on callback
+        // (p5's preload system can interfere with the callback)
+        function checkModelReady() {
+          if (faceMesh && typeof faceMesh.detectStart === 'function') {
+            console.log('FaceMesh ready, has detectStart');
+            faceMeshReady = true;
+            startDetection();
+          } else {
+            console.log('FaceMesh not ready yet, checking...');
+            gazeDebug.textContent = 'loading model...';
+            setTimeout(checkModelReady, 500);
+          }
+        }
+        checkModelReady();
       }, 500);
     } else {
       gazeDebug.textContent = `waiting for video... rs=${localVid.readyState}`;
