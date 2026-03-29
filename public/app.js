@@ -1,8 +1,7 @@
 // ============================================================
-// ShyFaceTime — client (p5LiveMedia version)
+// ShyFaceTime — client
 // ============================================================
 
-// --- Firebase Auth ---
 firebase.initializeApp({
   apiKey: "AIzaSyAe9ibfaDm5HSwIUa6cRGZb49pM12UE_sk",
   authDomain: "shyfacetime.firebaseapp.com",
@@ -14,44 +13,54 @@ firebase.initializeApp({
 
 const auth = firebase.auth();
 const googleProvider = new firebase.auth.GoogleAuthProvider();
-
 const socket = io();
 
 // --- DOM refs ---
 const loginScreen = document.getElementById('login-screen');
 const waitingScreen = document.getElementById('waiting-screen');
+const connectingScreen = document.getElementById('connecting-screen');
 const callScreen = document.getElementById('call-screen');
 const googleSigninBtn = document.getElementById('google-signin-btn');
 const signoutBtn = document.getElementById('signout-btn');
 const myPhoto = document.getElementById('my-photo');
 const myNameEl = document.getElementById('my-name');
-// userList removed — now handled by WaitingRoom class
-const incomingCallModal = document.getElementById('incoming-call');
-const callerNameEl = document.getElementById('caller-name');
-const callerPhotoEl = document.getElementById('caller-photo');
-const acceptBtn = document.getElementById('accept-btn');
-const declineBtn = document.getElementById('decline-btn');
+const userGrid = document.getElementById('user-grid');
+const waitingEmpty = document.getElementById('waiting-empty');
 const hangupBtn = document.getElementById('hangup-btn');
+const muteBtn = document.getElementById('mute-btn');
+const speakerBtn = document.getElementById('speaker-btn');
 const gazeDebug = document.getElementById('gaze-debug');
+
+// Connecting screen refs
+const connectingTitle = document.getElementById('connecting-title');
+const connectMyPhoto = document.getElementById('connect-my-photo');
+const connectMyName = document.getElementById('connect-my-name');
+const connectTheirPhoto = document.getElementById('connect-their-photo');
+const connectTheirName = document.getElementById('connect-their-name');
+const connectingActions = document.getElementById('connecting-actions');
+const connectAcceptBtn = document.getElementById('connect-accept-btn');
+const connectDeclineBtn = document.getElementById('connect-decline-btn');
+const connectingStatus = document.getElementById('connecting-status');
 
 // --- State ---
 let currentUser = null;
 let myName = '';
 let myPhoto_url = '';
 let mySocketId = null;
-let waitingRoom = null;
 let partnerId = null;
 let pendingCallerId = null;
 let localStream = null;
-let p5lm = null;        // p5LiveMedia instance
-let remoteVideo = null;  // remote video element from p5LiveMedia
+let p5lm = null;
+let remoteVideo = null;
 let p5Instance = null;
 let faceMesh = null;
 let lookScore = 1;
+let isMuted = false;
+let userListCache = [];
 
 // --- Helpers ---
 function showScreen(screen) {
-  [loginScreen, waitingScreen, callScreen].forEach(s => s.classList.remove('active'));
+  [loginScreen, waitingScreen, connectingScreen, callScreen].forEach(s => s.classList.remove('active'));
   screen.classList.add('active');
 }
 
@@ -60,14 +69,10 @@ function showScreen(screen) {
 // ============================================================
 
 googleSigninBtn.addEventListener('click', () => {
-  auth.signInWithPopup(googleProvider).catch(err => {
-    console.error('Sign-in error:', err);
-  });
+  auth.signInWithPopup(googleProvider).catch(err => console.error('Sign-in error:', err));
 });
 
-signoutBtn.addEventListener('click', () => {
-  auth.signOut();
-});
+signoutBtn.addEventListener('click', () => auth.signOut());
 
 auth.onAuthStateChanged((user) => {
   if (user) {
@@ -98,37 +103,81 @@ socket.on('connect', () => {
 // ============================================================
 
 socket.on('waiting-list', (list) => {
-  // Initialize waiting room if needed
-  if (!waitingRoom) {
-    const container = document.getElementById('waiting-room-canvas');
-    waitingRoom = new WaitingRoom(container);
-    waitingRoom.onCallRequest = (targetId) => {
-      socket.emit('call-request', targetId);
-    };
-    waitingRoom.start();
-  }
-  waitingRoom.updateUsers(list, mySocketId);
+  userListCache = list;
+  renderUserGrid(list);
 });
 
+function renderUserGrid(list) {
+  const others = list.filter(u => u.id !== mySocketId);
+  userGrid.innerHTML = '';
+
+  if (others.length === 0) {
+    waitingEmpty.style.display = 'block';
+    return;
+  }
+  waitingEmpty.style.display = 'none';
+
+  others.forEach(user => {
+    const card = document.createElement('div');
+    card.className = 'user-card';
+    card.innerHTML = `
+      <img src="${escapeAttr(user.photo)}" alt="" class="avatar-md">
+      <span class="user-name">${escapeHtml(user.name)}</span>
+      <span class="user-status">online</span>
+      <button class="btn btn-primary btn-sm" onclick="requestCall('${user.id}')">call</button>
+    `;
+    userGrid.appendChild(card);
+  });
+}
+
+window.requestCall = function(targetId) {
+  // Find the target user info
+  const target = userListCache.find(u => u.id === targetId);
+
+  // Show connecting screen as requester
+  connectMyPhoto.src = myPhoto_url;
+  connectMyName.textContent = myName;
+  connectTheirPhoto.src = target ? target.photo : '';
+  connectTheirName.textContent = target ? target.name : 'Someone';
+  connectingTitle.textContent = 'calling...';
+  connectingActions.classList.add('hidden');
+  connectingStatus.classList.remove('hidden');
+  connectingStatus.textContent = 'waiting for them to accept...';
+  showScreen(connectingScreen);
+
+  socket.emit('call-request', targetId);
+};
+
+// --- Incoming call → show connecting screen as responder ---
 socket.on('incoming-call', (data) => {
   pendingCallerId = data.callerId;
-  callerNameEl.textContent = data.callerName;
-  callerPhotoEl.src = data.callerPhoto || '';
-  incomingCallModal.classList.remove('hidden');
+
+  connectMyPhoto.src = myPhoto_url;
+  connectMyName.textContent = myName;
+  connectTheirPhoto.src = data.callerPhoto || '';
+  connectTheirName.textContent = data.callerName;
+  connectingTitle.textContent = 'incoming call';
+  connectingActions.classList.remove('hidden');
+  connectingStatus.classList.add('hidden');
+  showScreen(connectingScreen);
 });
 
-acceptBtn.addEventListener('click', () => {
-  incomingCallModal.classList.add('hidden');
+connectAcceptBtn.addEventListener('click', () => {
+  connectingActions.classList.add('hidden');
+  connectingStatus.classList.remove('hidden');
+  connectingStatus.textContent = 'connecting...';
   socket.emit('call-accept', pendingCallerId);
 });
 
-declineBtn.addEventListener('click', () => {
-  incomingCallModal.classList.add('hidden');
-  socket.emit('call-decline', pendingCallerId);
+connectDeclineBtn.addEventListener('click', () => {
   pendingCallerId = null;
+  showScreen(waitingScreen);
+  socket.emit('call-decline', pendingCallerId);
 });
 
-socket.on('call-declined', () => {});
+socket.on('call-declined', () => {
+  showScreen(waitingScreen);
+});
 
 // ============================================================
 // 3. CALL SETUP (p5LiveMedia)
@@ -138,10 +187,8 @@ socket.on('call-started', async (data) => {
   partnerId = data.partnerId;
   const roomName = data.room;
   console.log('Call started, joining room:', roomName);
-  if (waitingRoom) waitingRoom.stop();
   showScreen(callScreen);
 
-  // Get local webcam
   try {
     localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
   } catch (err) {
@@ -150,49 +197,49 @@ socket.on('call-started', async (data) => {
     return;
   }
 
-  // Show local video preview
   const localVideo = document.getElementById('local-video');
   localVideo.srcObject = localStream;
 
-  // Start face tracking
   startFaceMesh(localStream);
 
-  // p5LiveMedia needs a real p5 instance (calls new p5.MediaElement, sketch._elements.push)
-  // Use the preloader p5 instance we captured earlier
   if (!sketchInstance._elements) sketchInstance._elements = [];
-
-  // Connect p5LiveMedia to OUR server (not the public one)
-  // This avoids Socket.IO version mismatches
   const host = window.location.origin;
   console.log('Creating p5LiveMedia for room:', roomName, 'host:', host);
   p5lm = new p5LiveMedia(sketchInstance, "CAPTURE", localStream, roomName, host);
 
   p5lm.on('stream', (stream, id) => {
-    console.log('p5LiveMedia stream event! id:', id, 'stream:', stream);
+    console.log('p5LiveMedia stream event!', id);
     const videoEl = stream.elt || stream;
     remoteVideo = videoEl;
     startP5(videoEl);
   });
 
-  p5lm.on('disconnect', (id) => {
-    console.log('p5LiveMedia: peer disconnected', id);
-  });
-
-  p5lm.on('connect', (id) => {
-    console.log('p5LiveMedia: connected to signaling server, my id:', id);
-  });
+  p5lm.on('disconnect', (id) => console.log('p5LiveMedia: peer disconnected', id));
+  p5lm.on('connect', (id) => console.log('p5LiveMedia: connected, id:', id));
 });
 
 // ============================================================
-// 4. HANG UP
+// 4. CALL CONTROLS
 // ============================================================
 
 hangupBtn.addEventListener('click', hangUp);
 
+muteBtn.addEventListener('click', () => {
+  if (!localStream) return;
+  isMuted = !isMuted;
+  localStream.getAudioTracks().forEach(t => { t.enabled = !isMuted; });
+  muteBtn.style.background = isMuted ? 'var(--control-danger)' : 'var(--bg-secondary)';
+  muteBtn.style.color = isMuted ? '#fff' : 'var(--typo-primary)';
+});
+
+speakerBtn.addEventListener('click', () => {
+  // Toggle speaker (visual only — actual routing depends on device)
+  speakerBtn.classList.toggle('active');
+});
+
 socket.on('partner-hung-up', () => {
   cleanUpCall();
   showScreen(waitingScreen);
-  if (waitingRoom) waitingRoom.start();
   socket.emit('join', { name: myName, photo: myPhoto_url });
 });
 
@@ -200,53 +247,25 @@ function hangUp() {
   socket.emit('hang-up');
   cleanUpCall();
   showScreen(waitingScreen);
-  if (waitingRoom) waitingRoom.start();
   socket.emit('join', { name: myName, photo: myPhoto_url });
 }
 
 function cleanUpCall() {
-  try {
-    if (p5lm) { p5lm.disconnect(-1); }
-  } catch (e) { console.error('p5lm disconnect error:', e); }
+  try { if (p5lm) p5lm.disconnect(-1); } catch (e) {}
   p5lm = null;
-
-  if (p5Instance) {
-    p5Instance.remove();
-    p5Instance = null;
-  }
-
+  if (p5Instance) { p5Instance.remove(); p5Instance = null; }
   if (watchdogId) { clearInterval(watchdogId); watchdogId = null; }
-
-  // Stop detection but DON'T destroy faceMesh — it was preloaded
-  try {
-    if (faceMesh && typeof faceMesh.detectStop === 'function') {
-      faceMesh.detectStop();
-    }
-  } catch (e) { console.error('faceMesh stop error:', e); }
-
-  if (frameLoopId) {
-    cancelAnimationFrame(frameLoopId);
-    frameLoopId = null;
-  }
-  if (localStream) {
-    localStream.getTracks().forEach(t => t.stop());
-    localStream = null;
-  }
-  trackCanvas = null;
-  trackCtx = null;
-
-  // Clean up off-screen video/audio elements
+  try { if (faceMesh && typeof faceMesh.detectStop === 'function') faceMesh.detectStop(); } catch (e) {}
+  if (frameLoopId) { cancelAnimationFrame(frameLoopId); frameLoopId = null; }
+  if (localStream) { localStream.getTracks().forEach(t => t.stop()); localStream = null; }
+  trackCanvas = null; trackCtx = null;
   document.querySelectorAll('video[style*="-9999"], audio').forEach(el => {
     if (el.id !== 'local-video') el.remove();
   });
-  // Also clear the local video preview
-  const localVideo = document.getElementById('local-video');
-  if (localVideo) localVideo.srcObject = null;
-
-  remoteVideo = null;
-  partnerId = null;
-  lookScore = 1;
-  console.log('Call cleaned up');
+  const lv = document.getElementById('local-video');
+  if (lv) lv.srcObject = null;
+  remoteVideo = null; partnerId = null; lookScore = 1; isMuted = false;
+  muteBtn.style.background = ''; muteBtn.style.color = '';
 }
 
 // ============================================================
@@ -261,12 +280,9 @@ let frameLoopId = null;
 let lastResultTime = 0;
 let watchdogId = null;
 
-// Preload faceMesh using a minimal p5 instance (required because ml5 v1
-// integrates with p5's preload system when p5 is loaded)
-// Also used as the sketch reference for p5LiveMedia
 let sketchInstance = null;
 let faceMeshPreloader = new p5((p) => {
-  sketchInstance = p; // capture the real p5 instance
+  sketchInstance = p;
   p.preload = function () {
     console.log('Preloading faceMesh model...');
     faceMesh = ml5.faceMesh({ maxFaces: 1, refineLandmarks: true, flipped: false });
@@ -274,51 +290,42 @@ let faceMeshPreloader = new p5((p) => {
   p.setup = function () {
     p.noCanvas();
     faceMeshReady = true;
-    console.log('FaceMesh preloaded and ready, detectStart:', typeof faceMesh.detectStart);
+    console.log('FaceMesh preloaded, detectStart:', typeof faceMesh.detectStart);
   };
   p.draw = function () {};
 });
 
 function startFaceMesh(stream) {
   gazeDebug.textContent = 'setting up...';
-  console.log('startFaceMesh called');
-  noFaceCount = 0;
-  lastResultTime = 0;
+  noFaceCount = 0; lastResultTime = 0;
 
   trackCanvas = document.createElement('canvas');
-  trackCanvas.width = 320;
-  trackCanvas.height = 240;
+  trackCanvas.width = 320; trackCanvas.height = 240;
   trackCtx = trackCanvas.getContext('2d', { willReadFrequently: true });
 
   const localVid = document.getElementById('local-video');
 
   function drawFrame() {
     if (!trackCanvas) return;
-    if (localVid.readyState >= 2) {
-      trackCtx.drawImage(localVid, 0, 0, 320, 240);
-    }
+    if (localVid.readyState >= 2) trackCtx.drawImage(localVid, 0, 0, 320, 240);
     frameLoopId = requestAnimationFrame(drawFrame);
   }
 
   function waitForVideo() {
     if (localVid.readyState >= 2 && localVid.videoWidth > 0) {
-      console.log('Local video ready:', localVid.videoWidth, 'x', localVid.videoHeight);
       gazeDebug.textContent = 'video ready...';
       drawFrame();
-
-      // Wait for both video AND faceMesh to be ready
-      function waitForModel() {
-        if (faceMeshReady && faceMesh && typeof faceMesh.detectStart === 'function') {
-          console.log('Both video and model ready, starting detection');
-          startDetection();
-        } else {
-          gazeDebug.textContent = 'loading model...';
-          setTimeout(waitForModel, 300);
-        }
-      }
-      setTimeout(waitForModel, 500); // give canvas a few frames first
+      setTimeout(() => {
+        (function waitForModel() {
+          if (faceMeshReady && faceMesh && typeof faceMesh.detectStart === 'function') {
+            startDetection();
+          } else {
+            gazeDebug.textContent = 'loading model...';
+            setTimeout(waitForModel, 300);
+          }
+        })();
+      }, 500);
     } else {
-      gazeDebug.textContent = `waiting for video... rs=${localVid.readyState}`;
       setTimeout(waitForVideo, 300);
     }
   }
@@ -327,21 +334,16 @@ function startFaceMesh(stream) {
     if (!faceMesh || !faceMeshReady) return;
     lastResultTime = Date.now();
     gazeDebug.textContent = 'detecting...';
-    console.log('Starting detectStart');
     faceMesh.detectStart(trackCanvas, onFaceResults);
-
     clearInterval(watchdogId);
     watchdogId = setInterval(() => {
       if (!faceMeshReady) { clearInterval(watchdogId); return; }
-      const elapsed = Date.now() - lastResultTime;
-      if (elapsed > 3000) {
-        console.log('Watchdog: restarting detection');
-        gazeDebug.textContent = 'restarting detection...';
+      if (Date.now() - lastResultTime > 3000) {
+        gazeDebug.textContent = 'restarting...';
         faceMesh.detectStop();
         setTimeout(() => {
           lastResultTime = Date.now();
           faceMesh.detectStart(trackCanvas, onFaceResults);
-          console.log('Detection restarted');
         }, 500);
       }
     }, 2000);
@@ -352,191 +354,102 @@ function startFaceMesh(stream) {
 
 function onFaceResults(results) {
   lastResultTime = Date.now();
-
   if (!results || results.length === 0) {
-    noFaceCount++;
-    lookScore = 0;
+    noFaceCount++; lookScore = 0;
     gazeDebug.textContent = `no face (${noFaceCount})`;
     return;
   }
   noFaceCount = 0;
-
   const kp = results[0].keypoints;
-  const hasIris = kp.length > 468;
 
-  if (hasIris) {
-    const leftOuter = kp[33];
-    const leftInner = kp[133];
-    const leftIris = kp[468];
-    const rightInner = kp[362];
-    const rightOuter = kp[263];
-    const rightIris = kp[473];
-
-    const leftEyeW = Math.abs(leftInner.x - leftOuter.x);
-    const rightEyeW = Math.abs(rightOuter.x - rightInner.x);
-
-    let leftRatio = 0.5;
-    let rightRatio = 0.5;
-
-    if (leftEyeW > 1) {
-      const minX = Math.min(leftOuter.x, leftInner.x);
-      leftRatio = (leftIris.x - minX) / leftEyeW;
-    }
-    if (rightEyeW > 1) {
-      const minX = Math.min(rightOuter.x, rightInner.x);
-      rightRatio = (rightIris.x - minX) / rightEyeW;
-    }
-
-    const irisDeviation = (Math.abs(leftRatio - 0.5) + Math.abs(rightRatio - 0.5)) / 2;
-    const irisScore = 1 - Math.min(irisDeviation * 5, 1);
-
-    const noseTip = kp[1];
-    const leftCheek = kp[234];
-    const rightCheek = kp[454];
-    const faceWidth = Math.abs(rightCheek.x - leftCheek.x);
-    const faceCenter = (leftCheek.x + rightCheek.x) / 2;
-
-    let headScore = 1;
-    if (faceWidth > 1) {
-      const headDeviation = Math.abs(noseTip.x - faceCenter) / faceWidth;
-      headScore = 1 - Math.min(headDeviation * 4, 1);
-    }
-
-    lookScore = irisScore * 0.6 + headScore * 0.4;
-
-    gazeDebug.textContent = `iris: ${irisScore.toFixed(2)} head: ${headScore.toFixed(2)} → look: ${lookScore.toFixed(2)}`;
+  if (kp.length > 468) {
+    const lO = kp[33], lI = kp[133], lIr = kp[468];
+    const rI = kp[362], rO = kp[263], rIr = kp[473];
+    const lW = Math.abs(lI.x - lO.x), rW = Math.abs(rO.x - rI.x);
+    let lR = 0.5, rR = 0.5;
+    if (lW > 1) lR = (lIr.x - Math.min(lO.x, lI.x)) / lW;
+    if (rW > 1) rR = (rIr.x - Math.min(rO.x, rI.x)) / rW;
+    const iDev = (Math.abs(lR - 0.5) + Math.abs(rR - 0.5)) / 2;
+    const iScore = 1 - Math.min(iDev * 5, 1);
+    const nose = kp[1], lC = kp[234], rC = kp[454];
+    const fW = Math.abs(rC.x - lC.x), fCenter = (lC.x + rC.x) / 2;
+    let hScore = 1;
+    if (fW > 1) hScore = 1 - Math.min(Math.abs(nose.x - fCenter) / fW * 4, 1);
+    lookScore = iScore * 0.6 + hScore * 0.4;
+    gazeDebug.textContent = `iris:${iScore.toFixed(2)} head:${hScore.toFixed(2)} → ${lookScore.toFixed(2)}`;
   } else {
-    const noseTip = kp[1];
-    const leftCheek = kp[234];
-    const rightCheek = kp[454];
-    const faceWidth = Math.abs(rightCheek.x - leftCheek.x);
-    const faceCenter = (leftCheek.x + rightCheek.x) / 2;
-
-    let headScore = 1;
-    if (faceWidth > 1) {
-      const headDeviation = Math.abs(noseTip.x - faceCenter) / faceWidth;
-      headScore = 1 - Math.min(headDeviation * 3, 1);
-    }
-
-    const foreHead = kp[10];
-    const chin = kp[152];
-    const faceHeight = Math.abs(chin.y - foreHead.y);
-    const noseVertical = (noseTip.y - foreHead.y) / faceHeight;
-    const vertDeviation = Math.abs(noseVertical - 0.65);
-    const vertScore = 1 - Math.min(vertDeviation * 3, 1);
-
-    lookScore = headScore * 0.7 + vertScore * 0.3;
-
-    gazeDebug.textContent = `(no iris) head: ${headScore.toFixed(2)} vert: ${vertScore.toFixed(2)} → look: ${lookScore.toFixed(2)}`;
+    const nose = kp[1], lC = kp[234], rC = kp[454];
+    const fW = Math.abs(rC.x - lC.x), fCenter = (lC.x + rC.x) / 2;
+    let hScore = 1;
+    if (fW > 1) hScore = 1 - Math.min(Math.abs(nose.x - fCenter) / fW * 3, 1);
+    const fH = Math.abs(kp[152].y - kp[10].y);
+    const nV = (nose.y - kp[10].y) / fH;
+    const vScore = 1 - Math.min(Math.abs(nV - 0.65) * 3, 1);
+    lookScore = hScore * 0.7 + vScore * 0.3;
+    gazeDebug.textContent = `head:${hScore.toFixed(2)} vert:${vScore.toFixed(2)} → ${lookScore.toFixed(2)}`;
   }
 }
 
 // ============================================================
-// 6. P5 CANVAS — the core experience
+// 6. P5 CANVAS — the core blur experience
 // ============================================================
 
 function startP5(remoteVideoEl) {
   if (p5Instance) return;
-
   p5Instance = new p5((p) => {
-    let vidEl; // the HTML video element for the remote stream
-    let blurAmount = 40;
-    let currentBlur = 40;
-    let canvasW, canvasH;
-    let canvasEl;
-    let isMobile = false;
+    let vidEl, blurAmount = 40, currentBlur = 40, canvasW, canvasH, canvasEl, isMobileDevice;
 
     p.setup = function () {
-      canvasW = window.innerWidth;
-      canvasH = window.innerHeight;
+      canvasW = window.innerWidth; canvasH = window.innerHeight;
       const canvas = p.createCanvas(canvasW, canvasH);
       canvas.parent('canvas-container');
       canvasEl = canvas.elt;
-
-      // remoteVideoEl comes from p5LiveMedia — could be HTMLVideoElement or p5.MediaElement
       vidEl = remoteVideoEl;
-
-      // Ensure it's playing
-      if (vidEl.play) {
-        vidEl.autoplay = true;
-        vidEl.playsInline = true;
-        vidEl.play().catch(e => console.error('Remote video play error:', e));
-      }
-
-      // Separate audio element for remote audio
+      if (vidEl.play) { vidEl.autoplay = true; vidEl.playsInline = true; vidEl.play().catch(() => {}); }
       const audioEl = document.createElement('audio');
       audioEl.srcObject = vidEl.srcObject || vidEl.captureStream?.();
       audioEl.autoplay = true;
       document.body.appendChild(audioEl);
-      audioEl.play().catch(e => console.error('Audio play error:', e));
-
-      isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+      audioEl.play().catch(() => {});
+      isMobileDevice = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
     };
 
     p.draw = function () {
-      p.background(10);
-
+      p.background(0);
       if (!vidEl || vidEl.readyState < 2) {
-        p.fill(100);
-        p.textAlign(p.CENTER, p.CENTER);
-        p.textSize(16);
+        p.fill(100); p.textAlign(p.CENTER, p.CENTER); p.textSize(16);
         p.text('connecting...', canvasW / 2, canvasH / 2);
         return;
       }
-
       const targetBlur = lookScore * blurAmount;
       currentBlur = p.lerp(currentBlur, targetBlur, 0.12);
-
-      const videoRatio = vidEl.videoWidth / vidEl.videoHeight;
-      const canvasRatio = canvasW / canvasH;
-      let drawW, drawH, drawX, drawY;
-      if (videoRatio > canvasRatio) {
-        drawH = canvasH; drawW = canvasH * videoRatio;
-      } else {
-        drawW = canvasW; drawH = canvasW / videoRatio;
-      }
-      drawX = (canvasW - drawW) / 2;
-      drawY = (canvasH - drawH) / 2;
-
-      const ctx = p.drawingContext;
-      const blurPx = Math.round(currentBlur);
-
-      // Flip horizontally (mirror) so remote person looks natural
-      ctx.save();
-      ctx.translate(canvasW, 0);
-      ctx.scale(-1, 1);
-
-      if (!isMobile) {
+      const vr = vidEl.videoWidth / vidEl.videoHeight, cr = canvasW / canvasH;
+      let dw, dh, dx, dy;
+      if (vr > cr) { dh = canvasH; dw = canvasH * vr; } else { dw = canvasW; dh = canvasW / vr; }
+      dx = (canvasW - dw) / 2; dy = (canvasH - dh) / 2;
+      const ctx = p.drawingContext, blur = Math.round(currentBlur);
+      ctx.save(); ctx.translate(canvasW, 0); ctx.scale(-1, 1);
+      if (!isMobileDevice) {
         canvasEl.style.filter = 'none';
-        ctx.filter = blurPx > 0 ? `blur(${blurPx}px)` : 'none';
-        ctx.drawImage(vidEl, drawX, drawY, drawW, drawH);
+        ctx.filter = blur > 0 ? `blur(${blur}px)` : 'none';
+        ctx.drawImage(vidEl, dx, dy, dw, dh);
         ctx.filter = 'none';
       } else {
-        ctx.drawImage(vidEl, drawX, drawY, drawW, drawH);
+        ctx.drawImage(vidEl, dx, dy, dw, dh);
       }
-
       ctx.restore();
-
-      // Overlays drawn without flip
-      if (!isMobile) {
+      if (!isMobileDevice) {
         if (currentBlur > 5) {
-          const alpha = p.map(currentBlur, 5, blurAmount, 0, 80);
-          p.noStroke();
-          p.fill(10, 10, 10, alpha);
+          p.noStroke(); p.fill(10, 10, 10, p.map(currentBlur, 5, blurAmount, 0, 80));
           p.rect(0, 0, canvasW, canvasH);
         }
       } else {
-        if (blurPx > 0) {
-          canvasEl.style.filter = `blur(${blurPx}px) brightness(${p.map(currentBlur, 0, blurAmount, 1, 0.6)})`;
-        } else {
-          canvasEl.style.filter = 'none';
-        }
+        canvasEl.style.filter = blur > 0 ? `blur(${blur}px) brightness(${p.map(currentBlur, 0, blurAmount, 1, 0.6)})` : 'none';
       }
     };
 
     p.windowResized = function () {
-      canvasW = window.innerWidth;
-      canvasH = window.innerHeight;
+      canvasW = window.innerWidth; canvasH = window.innerHeight;
       p.resizeCanvas(canvasW, canvasH);
     };
   });
@@ -546,12 +459,5 @@ function startP5(remoteVideoEl) {
 // UTILS
 // ============================================================
 
-function escapeHtml(str) {
-  const div = document.createElement('div');
-  div.textContent = str;
-  return div.innerHTML;
-}
-
-function escapeAttr(str) {
-  return str.replace(/&/g, '&amp;').replace(/"/g, '&quot;');
-}
+function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+function escapeAttr(s) { return s.replace(/&/g, '&amp;').replace(/"/g, '&quot;'); }

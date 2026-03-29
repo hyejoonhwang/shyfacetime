@@ -4,66 +4,104 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ShyFaceTime</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <!-- Sign-in screen -->
+
+  <!-- PAGE 1: Landing -->
   <div id="login-screen" class="screen active">
     <iframe id="spline-bg" src="https://my.spline.design/dunes-dr8PJ3xiqnLmJtWkqcPBtZjF/" frameborder="0" width="100%" height="100%"></iframe>
     <div id="login-content">
       <h1>ShyFaceTime</h1>
       <p class="hook">what if you could only see someone<br>when you looked away?</p>
 
-      <div id="story">
+      <div class="story">
         <p>are you the kind of person who feels uncomfortable putting your face up in the camera lens?</p>
-        <p>or you sometimes don't want to show your face but at the same time turning the camera off feels too careless?</p>
+        <p>or you sometimes don't want to show your face but turning the camera off feels too careless?</p>
         <p>have you ever had a moment with your crush where you can't directly look them in their eyes because you're too shy? and could only see them with your side eye?</p>
         <p class="story-cta">this is the app for you.</p>
       </div>
 
-      <div id="explanation">
+      <div class="explanation">
         <p>they can only see your face when they are looking away.</p>
         <p class="aside">what does that even mean?</p>
-        <p>when they look directly at the screen to see your face, you are blurred out.<br>when they look away from the screen, you are in focus.</p>
+        <p>when they look directly at the screen, you are blurred out.<br>when they look away, you are in focus.</p>
         <p>so they would never be able to see you closely while facetiming with shyfacetime.</p>
       </div>
 
-      <button id="google-signin-btn">sign in with google</button>
+      <button id="google-signin-btn" class="btn btn-primary btn-lg">
+        <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="G" class="google-icon">
+        Enter with Google
+      </button>
     </div>
   </div>
 
-  <!-- Waiting room -->
+  <!-- PAGE 2: Waiting Room -->
   <div id="waiting-screen" class="screen">
-    <iframe id="spline-bg-waiting" src="https://my.spline.design/dunes-dr8PJ3xiqnLmJtWkqcPBtZjF/" frameborder="0" width="100%" height="100%"></iframe>
-    <div id="waiting-room-canvas"></div>
-    <div id="waiting-overlay">
-      <div id="my-profile">
-        <img id="my-photo" src="" alt="">
-        <span id="my-name"></span>
-        <button id="signout-btn">sign out</button>
+    <div class="page-header">
+      <div class="header-left">
+        <h2>ShyFaceTime</h2>
       </div>
-      <div id="hover-name"></div>
+      <div class="header-right">
+        <img id="my-photo" src="" alt="" class="avatar-sm">
+        <span id="my-name"></span>
+        <button id="signout-btn" class="btn btn-ghost btn-sm">sign out</button>
+      </div>
     </div>
 
-    <!-- Incoming call modal -->
-    <div id="incoming-call" class="modal hidden">
-      <div id="caller-info">
-        <img id="caller-photo" src="" alt="">
-        <p><span id="caller-name"></span> wants to call you</p>
+    <div id="waiting-body">
+      <div id="waiting-empty">
+        <p class="empty-icon">👀</p>
+        <p>no one else is here yet...</p>
+        <p class="empty-sub">share the link and wait for someone shy to show up</p>
       </div>
-      <div class="modal-buttons">
-        <button id="accept-btn">accept</button>
-        <button id="decline-btn">decline</button>
-      </div>
+      <div id="user-grid"></div>
     </div>
   </div>
 
-  <!-- Call screen -->
+  <!-- PAGE 3: Connecting -->
+  <div id="connecting-screen" class="screen">
+    <div class="connecting-content">
+      <h2 id="connecting-title">connecting...</h2>
+      <div class="connecting-profiles">
+        <div class="connecting-user">
+          <img id="connect-my-photo" src="" alt="" class="avatar-lg">
+          <span id="connect-my-name"></span>
+        </div>
+        <div class="connecting-pulse">
+          <div class="pulse-ring"></div>
+          <div class="pulse-ring delay"></div>
+          <span class="pulse-icon">📞</span>
+        </div>
+        <div class="connecting-user">
+          <img id="connect-their-photo" src="" alt="" class="avatar-lg">
+          <span id="connect-their-name"></span>
+        </div>
+      </div>
+      <div id="connecting-actions" class="hidden">
+        <button id="connect-accept-btn" class="btn btn-primary">accept</button>
+        <button id="connect-decline-btn" class="btn btn-danger">decline</button>
+      </div>
+      <p id="connecting-status">waiting for them to accept...</p>
+    </div>
+  </div>
+
+  <!-- PAGE 4: Call -->
   <div id="call-screen" class="screen">
     <div id="canvas-container"></div>
     <video id="local-video" autoplay muted playsinline></video>
     <div id="call-controls">
-      <button id="hangup-btn">hang up</button>
+      <button id="mute-btn" class="btn-round" title="Mute">
+        <svg width="24" height="24" viewBox="0 0 256 256" fill="currentColor"><path d="M128,176a48.05,48.05,0,0,0,48-48V64a48,48,0,0,0-96,0v64A48.05,48.05,0,0,0,128,176ZM96,64a32,32,0,0,1,64,0v64a32,32,0,0,1-64,0Zm40,143.6V232a8,8,0,0,1-16,0V207.6A80.11,80.11,0,0,1,48,128a8,8,0,0,1,16,0,64,64,0,0,0,128,0,8,8,0,0,1,16,0A80.11,80.11,0,0,1,136,207.6Z"/></svg>
+      </button>
+      <button id="hangup-btn" class="btn-round btn-round-danger" title="Hang up">
+        <svg width="28" height="28" viewBox="0 0 256 256" fill="currentColor"><path d="M231.59,90.13C175.44,34,80.56,34,24.41,90.13a16,16,0,0,0,0,22.77l22.79,22.55a16.14,16.14,0,0,0,11.31,4.55,16,16,0,0,0,11.32-4.55L92.1,113.18A12,12,0,0,0,95.54,104l.23-19.26a119.77,119.77,0,0,1,64.46,0L160.46,104a12,12,0,0,0,3.44,9.18l22.27,22.27a16,16,0,0,0,22.63,0l22.79-22.55A16,16,0,0,0,231.59,90.13Z"/></svg>
+      </button>
+      <button id="speaker-btn" class="btn-round" title="Speaker">
+        <svg width="24" height="24" viewBox="0 0 256 256" fill="currentColor"><path d="M155.51,24.81a8,8,0,0,0-8.42.88L77.25,80H32A16,16,0,0,0,16,96v64a16,16,0,0,0,16,16H77.25l69.84,54.31A8,8,0,0,0,160,224V32A8,8,0,0,0,155.51,24.81ZM144,207.64,84.91,161.69A7.94,7.94,0,0,0,80,160H32V96H80a7.94,7.94,0,0,0,4.91-1.69L144,48.36Zm64-79.64a24,24,0,0,1-24,24,8,8,0,0,1,0-16,8,8,0,0,0,0-16,8,8,0,0,1,0-16,24,24,0,0,1,24,24Z"/></svg>
+      </button>
     </div>
     <div id="gaze-debug"></div>
   </div>
@@ -76,7 +114,7 @@
   <script src="https://p5livemedia.itp.io/simplepeer.min.js"></script>
   <script src="https://p5livemedia.itp.io/p5livemedia.js"></script>
   <script src="https://unpkg.com/ml5@1/dist/ml5.min.js"></script>
-  <script src="waiting-room.js?v=36"></script>
-  <script src="app.js?v=20260329i"></script>
+  <script src="waiting-room.js?v=40"></script>
+  <script src="app.js?v=20260329j"></script>
 </body>
 </html>

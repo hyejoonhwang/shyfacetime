@@ -1,20 +1,40 @@
 @font-face {
   font-family: 'Shizuru';
   src: url('/fonts/Shizuru-Regular.ttf') format('truetype');
-  font-weight: normal;
-  font-style: normal;
 }
 
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
+/* ============================================
+   DESIGN SYSTEM — Clubhouse-inspired bright
+   Font: Nunito | Radius: 32px | Warm cream
+   ============================================ */
+
+:root {
+  --bg-default: #F1EFE5;
+  --bg-secondary: #FFFFFF;
+  --bg-tone: #E6E3D6;
+  --bg-border: #DEDCD3;
+  --brand: #55AB67;
+  --brand-dark: #489958;
+  --typo-primary: #000000;
+  --typo-secondary: #333333;
+  --typo-ghost: #999999;
+  --typo-time: #6E664E;
+  --control-green-bg: #55AB67;
+  --control-green-text: #FFFFFF;
+  --control-danger: #DA615C;
+  --control-ghost-bg: #F2F2F2;
+  --radius: 32px;
+  --radius-sm: 16px;
+  --radius-xs: 12px;
+  --font: 'Nunito', sans-serif;
 }
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
 
 body {
-  background: #0a0a0a;
-  color: #e0e0e0;
-  font-family: 'Helvetica Neue', Arial, sans-serif;
+  background: var(--bg-default);
+  color: var(--typo-primary);
+  font-family: var(--font);
   height: 100vh;
   overflow: hidden;
 }
@@ -24,23 +44,140 @@ body {
   width: 100vw;
   height: 100vh;
   flex-direction: column;
+}
+
+.screen.active { display: flex; }
+
+.hidden { display: none !important; }
+
+/* ============================================
+   BUTTONS
+   ============================================ */
+
+.btn {
+  font-family: var(--font);
+  font-weight: 700;
+  font-size: 1rem;
+  border: none;
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.15s;
+  padding: 14px 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.btn:hover {
+  transform: scale(1.02);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+}
+
+.btn:active { transform: scale(0.98); }
+
+.btn-primary {
+  background: var(--control-green-bg);
+  color: var(--control-green-text);
+}
+
+.btn-danger {
+  background: var(--control-danger);
+  color: #fff;
+}
+
+.btn-ghost {
+  background: var(--control-ghost-bg);
+  color: var(--typo-secondary);
+}
+
+.btn-sm {
+  font-size: 0.8rem;
+  padding: 8px 20px;
+  border-radius: var(--radius-sm);
+}
+
+.btn-lg {
+  font-size: 1.1rem;
+  padding: 16px 40px;
+}
+
+.google-icon {
+  width: 20px;
+  height: 20px;
+}
+
+/* Round icon buttons (call controls) */
+.btn-round {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: none;
+  background: var(--bg-secondary);
+  color: var(--typo-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.15s;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+}
+
+.btn-round:hover {
+  transform: scale(1.08);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.12);
+}
+
+.btn-round:active { transform: scale(0.95); }
+
+.btn-round-danger {
+  background: var(--control-danger);
+  color: #fff;
+  width: 64px;
+  height: 64px;
+}
+
+/* ============================================
+   AVATARS
+   ============================================ */
+
+.avatar-sm {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--bg-border);
+}
+
+.avatar-md {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 3px solid var(--bg-border);
+}
+
+.avatar-lg {
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 3px solid var(--bg-border);
+}
+
+/* ============================================
+   PAGE 1: LANDING
+   ============================================ */
+
+#login-screen {
+  position: relative;
   align-items: center;
   justify-content: center;
 }
 
-.screen.active {
-  display: flex;
-}
-
-/* --- Login screen --- */
-#login-screen {
-  position: relative;
-}
-
-#spline-bg, #spline-bg-waiting {
+#spline-bg {
   position: absolute;
-  top: 0;
-  left: 0;
+  top: 0; left: 0;
   width: 100vw;
   height: calc(100vh + 80px);
   z-index: 0;
@@ -55,217 +192,253 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  max-width: 520px;
+  max-width: 540px;
   padding: 0 24px;
   overflow-y: auto;
   max-height: 100vh;
-  padding-top: 8vh;
+  padding-top: 6vh;
   padding-bottom: 4vh;
 }
 
 #login-screen h1 {
-  font-size: clamp(2rem, 6vw, 3.2rem);
-  font-weight: 200;
-  letter-spacing: 0.3em;
-  text-transform: lowercase;
-  margin-bottom: 1.2rem;
+  font-size: clamp(2.2rem, 6vw, 3.4rem);
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  margin-bottom: 1rem;
+  color: var(--typo-primary);
 }
 
 .hook {
-  font-size: clamp(1rem, 2.5vw, 1.3rem);
-  color: #aaa;
+  font-size: clamp(1rem, 2.5vw, 1.2rem);
+  color: var(--typo-ghost);
   text-align: center;
   line-height: 1.7;
-  margin-bottom: 3rem;
+  margin-bottom: 2.5rem;
   font-style: italic;
 }
 
-#story {
-  margin-bottom: 2.5rem;
-}
-
-#story p {
+.story p, .explanation p {
   font-size: 0.95rem;
-  color: #777;
+  color: var(--typo-secondary);
   text-align: center;
   line-height: 1.8;
-  margin-bottom: 1rem;
+  margin-bottom: 0.8rem;
 }
 
-#story .story-cta {
-  color: #ddd;
+.story .story-cta {
+  color: var(--brand);
   font-size: 1.1rem;
-  margin-top: 1.5rem;
-  font-weight: 500;
+  font-weight: 700;
+  margin-top: 1.2rem;
 }
 
-#explanation {
-  margin-bottom: 2.5rem;
-}
+.story { margin-bottom: 2rem; }
 
-#explanation p {
-  font-size: 0.95rem;
-  color: #999;
-  text-align: center;
-  line-height: 1.8;
-  margin-bottom: 1rem;
-}
+.explanation { margin-bottom: 2.5rem; }
 
-#explanation .aside {
-  color: #555;
+.explanation .aside {
+  color: var(--typo-ghost);
   font-style: italic;
   font-size: 0.85rem;
 }
 
-#google-signin-btn {
-  padding: 0.9rem 2.5rem;
-  font-size: 1rem;
-  margin-top: 1rem;
-}
+/* ============================================
+   PAGE 2: WAITING ROOM
+   ============================================ */
 
-button {
-  background: #1a1a1a;
-  border: 1px solid #333;
-  color: #e0e0e0;
-  padding: 0.7rem 1.5rem;
-  font-size: 1rem;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-
-button:hover {
-  background: #2a2a2a;
-}
-
-/* --- Waiting room --- */
 #waiting-screen {
-  position: relative;
-  justify-content: center;
+  background: var(--bg-default);
+}
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
   align-items: center;
+  padding: 16px 24px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--bg-border);
+  flex-shrink: 0;
 }
 
-#waiting-room-canvas {
-  position: absolute;
-  inset: 0;
-  z-index: 1;
+.page-header h2 {
+  font-size: 1.2rem;
+  font-weight: 800;
 }
 
-#waiting-room-canvas canvas {
-  display: block;
-  width: 100%;
-  height: 100%;
-}
-
-#waiting-overlay {
-  position: absolute;
-  inset: 0;
-  z-index: 1;
-  pointer-events: none;
-}
-
-#my-profile {
-  position: absolute;
-  top: 20px;
-  left: 20px;
+.header-right {
   display: flex;
   align-items: center;
-  gap: 0.6rem;
-  pointer-events: auto;
+  gap: 10px;
 }
 
-#my-photo {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-}
-
-#my-name {
+.header-right span {
   font-size: 0.9rem;
-  color: #aaa;
+  font-weight: 600;
+  color: var(--typo-secondary);
 }
 
-#signout-btn {
-  font-size: 0.75rem;
-  padding: 0.3rem 0.8rem;
-  color: #888;
-  border-color: #2a2a2a;
-  pointer-events: auto;
-}
-
-#hover-name {
-  position: absolute;
-  bottom: 40px;
-  left: 50%;
-  transform: translateX(-50%);
-  font-size: 1.1rem;
-  color: #ddd;
-  letter-spacing: 0.1em;
-  opacity: 0;
-  transition: opacity 0.3s;
-}
-
-/* --- Incoming call modal --- */
-.modal {
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  background: #1a1a1a;
-  border: 1px solid #333;
-  padding: 2rem;
-  border-radius: 8px;
-  text-align: center;
-  z-index: 100;
-}
-
-#caller-info {
+#waiting-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 32px 24px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.8rem;
-  margin-bottom: 1.5rem;
 }
 
-#caller-photo {
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
+#waiting-empty {
+  text-align: center;
+  margin-top: 20vh;
+  color: var(--typo-ghost);
 }
 
-#caller-info p {
-  font-size: 1.1rem;
+.empty-icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
 }
 
-.modal-buttons {
+#waiting-empty p {
+  font-size: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.empty-sub {
+  font-size: 0.85rem;
+  color: var(--typo-ghost);
+}
+
+#user-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 16px;
+  width: 100%;
+  max-width: 800px;
+}
+
+.user-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--bg-border);
+  border-radius: var(--radius);
+  padding: 24px;
   display: flex;
-  gap: 1rem;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  transition: transform 0.2s, box-shadow 0.2s;
+  cursor: pointer;
+}
+
+.user-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 30px rgba(0,0,0,0.08);
+}
+
+.user-card .user-name {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--typo-primary);
+}
+
+.user-card .user-status {
+  font-size: 0.8rem;
+  color: var(--typo-ghost);
+}
+
+.user-card .btn {
+  width: 100%;
+}
+
+/* ============================================
+   PAGE 3: CONNECTING
+   ============================================ */
+
+#connecting-screen {
+  background: var(--bg-default);
+  align-items: center;
   justify-content: center;
 }
 
-#accept-btn {
-  border-color: #4a4;
+.connecting-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 32px;
 }
 
-#accept-btn:hover {
-  background: #1a2a1a;
+.connecting-content h2 {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--typo-primary);
 }
 
-#decline-btn {
-  border-color: #a44;
+.connecting-profiles {
+  display: flex;
+  align-items: center;
+  gap: 40px;
 }
 
-#decline-btn:hover {
-  background: #2a1a1a;
+.connecting-user {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
 }
 
-.hidden {
-  display: none !important;
+.connecting-user span {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--typo-secondary);
 }
 
-/* --- Call screen --- */
+.connecting-pulse {
+  position: relative;
+  width: 60px;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pulse-icon {
+  font-size: 1.5rem;
+  z-index: 1;
+}
+
+.pulse-ring {
+  position: absolute;
+  inset: 0;
+  border: 2px solid var(--brand);
+  border-radius: 50%;
+  animation: pulse-expand 2s ease-out infinite;
+  opacity: 0;
+}
+
+.pulse-ring.delay {
+  animation-delay: 1s;
+}
+
+@keyframes pulse-expand {
+  0% { transform: scale(0.5); opacity: 0.8; }
+  100% { transform: scale(1.8); opacity: 0; }
+}
+
+#connecting-actions {
+  display: flex;
+  gap: 16px;
+}
+
+#connecting-status {
+  font-size: 0.9rem;
+  color: var(--typo-ghost);
+}
+
+/* ============================================
+   PAGE 4: CALL
+   ============================================ */
+
 #call-screen {
   position: relative;
+  background: #000;
 }
 
 #canvas-container {
@@ -279,40 +452,59 @@ button:hover {
 
 #local-video {
   position: fixed;
-  bottom: 80px;
-  right: 12px;
-  width: min(180px, 30vw);
-  border-radius: 8px;
-  border: 1px solid #333;
+  bottom: 100px;
+  right: 20px;
+  width: min(160px, 28vw);
+  border-radius: var(--radius-sm);
+  border: 3px solid rgba(255,255,255,0.2);
   z-index: 10;
   transform: scaleX(-1);
 }
 
 #call-controls {
   position: fixed;
-  bottom: 20px;
+  bottom: 24px;
   left: 50%;
   transform: translateX(-50%);
   z-index: 10;
-}
-
-#hangup-btn {
-  border-color: #a44;
-  padding: 0.7rem 2rem;
-}
-
-#hangup-btn:hover {
-  background: #2a1a1a;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  background: rgba(255,255,255,0.1);
+  backdrop-filter: blur(20px);
+  padding: 12px 24px;
+  border-radius: 40px;
 }
 
 #gaze-debug {
   position: fixed;
   top: 10px;
   left: 10px;
-  font-size: 0.85rem;
-  color: #fff;
-  background: rgba(0,0,0,0.7);
+  font-size: 0.75rem;
+  color: rgba(255,255,255,0.5);
+  background: rgba(0,0,0,0.4);
   padding: 6px 10px;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   z-index: 9999;
+  font-family: monospace;
+}
+
+/* ============================================
+   UTILITIES
+   ============================================ */
+
+@media (max-width: 600px) {
+  #user-grid {
+    grid-template-columns: 1fr;
+  }
+  .connecting-profiles {
+    gap: 24px;
+  }
+  .avatar-lg {
+    width: 72px;
+    height: 72px;
+  }
+  #login-content {
+    padding-top: 4vh;
+  }
 }
