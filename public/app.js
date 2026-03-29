@@ -56,8 +56,6 @@ let p5Instance = null;
 let faceMesh = null;
 let lookScore = 1;
 let isMuted = false;
-let partnerLookScore = 0; // what the other person's gaze says about how they see me
-let lastGazeSendTime = 0;
 
 // --- Helpers ---
 function showScreen(screen) {
@@ -178,11 +176,6 @@ socket.on('call-declined', () => {
   showScreen(waitingScreen);
 });
 
-// Receive partner's gaze score — controls blur on my local preview
-socket.on('partner-gaze-score', (score) => {
-  partnerLookScore = score;
-});
-
 // ============================================================
 // 3. CALL SETUP (p5LiveMedia)
 // ============================================================
@@ -268,7 +261,7 @@ function cleanUpCall() {
   });
   const lv = document.getElementById('local-video');
   if (lv) lv.srcObject = null;
-  remoteVideo = null; partnerId = null; lookScore = 1; partnerLookScore = 1; isMuted = false;
+  remoteVideo = null; partnerId = null; lookScore = 1; isMuted = false;
   muteBtn.style.background = ''; muteBtn.style.color = '';
 }
 
@@ -403,8 +396,6 @@ function startP5(remoteVideoEl) {
   p5Instance = new p5((p) => {
     let vidEl, blurAmount = 40, currentBlur = 40, canvasW, canvasH, canvasEl, isMobileDevice;
 
-    let blurCanvas, blurCtx; // offscreen canvas for mobile blur
-
     p.setup = function () {
       canvasW = window.innerWidth; canvasH = window.innerHeight;
       const canvas = p.createCanvas(canvasW, canvasH);
@@ -418,18 +409,6 @@ function startP5(remoteVideoEl) {
       document.body.appendChild(audioEl);
       audioEl.play().catch(() => {});
       isMobileDevice = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-
-      // Test if ctx.filter actually works
-      const testC = document.createElement('canvas');
-      testC.width = 1; testC.height = 1;
-      const testCtx = testC.getContext('2d');
-      testCtx.filter = 'blur(1px)';
-      const ctxFilterWorks = (testCtx.filter === 'blur(1px)');
-
-      if (!ctxFilterWorks) {
-        blurCanvas = document.createElement('canvas');
-        blurCtx = blurCanvas.getContext('2d');
-      }
     };
 
     p.draw = function () {
@@ -441,55 +420,28 @@ function startP5(remoteVideoEl) {
       }
       const targetBlur = lookScore * blurAmount;
       currentBlur = p.lerp(currentBlur, targetBlur, 0.12);
-
-      // Send my lookScore to partner (throttled to ~10fps)
-      const now = Date.now();
-      if (now - lastGazeSendTime > 100) {
-        socket.emit('gaze-score', lookScore);
-        lastGazeSendTime = now;
-      }
-
-      // Local preview: blur based on PARTNER's lookScore (how they see me)
-      const localVid = document.getElementById('local-video');
-      if (localVid) {
-        const partnerBlur = Math.round(partnerLookScore * blurAmount);
-        localVid.style.filter = partnerBlur > 0 ? `blur(${partnerBlur}px)` : 'none';
-      }
       const vr = vidEl.videoWidth / vidEl.videoHeight, cr = canvasW / canvasH;
       let dw, dh, dx, dy;
       if (vr > cr) { dh = canvasH; dw = canvasH * vr; } else { dw = canvasW; dh = canvasW / vr; }
       dx = (canvasW - dw) / 2; dy = (canvasH - dh) / 2;
       const ctx = p.drawingContext, blur = Math.round(currentBlur);
       ctx.save(); ctx.translate(canvasW, 0); ctx.scale(-1, 1);
-
-      if (!blurCanvas) {
-        // Desktop: ctx.filter works — blur inside canvas pixels
+      if (!isMobileDevice) {
+        canvasEl.style.filter = 'none';
         ctx.filter = blur > 0 ? `blur(${blur}px)` : 'none';
         ctx.drawImage(vidEl, dx, dy, dw, dh);
         ctx.filter = 'none';
       } else {
-        // Mobile fallback: downscale/upscale on offscreen canvas
-        if (blur > 2) {
-          const scale = p.map(currentBlur, 0, blurAmount, 1, 0.04);
-          const sw = Math.max(4, Math.round(dw * scale));
-          const sh = Math.max(4, Math.round(dh * scale));
-          blurCanvas.width = sw;
-          blurCanvas.height = sh;
-          blurCtx.imageSmoothingEnabled = true;
-          blurCtx.imageSmoothingQuality = 'medium';
-          blurCtx.drawImage(vidEl, 0, 0, sw, sh);
-          ctx.imageSmoothingEnabled = true;
-          ctx.imageSmoothingQuality = 'medium';
-          ctx.drawImage(blurCanvas, 0, 0, sw, sh, dx, dy, dw, dh);
-        } else {
-          ctx.drawImage(vidEl, dx, dy, dw, dh);
-        }
+        ctx.drawImage(vidEl, dx, dy, dw, dh);
       }
-
       ctx.restore();
-      if (currentBlur > 5) {
-        p.noStroke(); p.fill(10, 10, 10, p.map(currentBlur, 5, blurAmount, 0, 80));
-        p.rect(0, 0, canvasW, canvasH);
+      if (!isMobileDevice) {
+        if (currentBlur > 5) {
+          p.noStroke(); p.fill(10, 10, 10, p.map(currentBlur, 5, blurAmount, 0, 80));
+          p.rect(0, 0, canvasW, canvasH);
+        }
+      } else {
+        canvasEl.style.filter = blur > 0 ? `blur(${blur}px) brightness(${p.map(currentBlur, 0, blurAmount, 1, 0.6)})` : 'none';
       }
     };
 
