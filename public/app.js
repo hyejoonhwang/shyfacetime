@@ -25,7 +25,7 @@ const googleSigninBtn = document.getElementById('google-signin-btn');
 const signoutBtn = document.getElementById('signout-btn');
 const myPhoto = document.getElementById('my-photo');
 const myNameEl = document.getElementById('my-name');
-const userList = document.getElementById('user-list');
+// userList removed — now handled by WaitingRoom class
 const incomingCallModal = document.getElementById('incoming-call');
 const callerNameEl = document.getElementById('caller-name');
 const callerPhotoEl = document.getElementById('caller-photo');
@@ -39,6 +39,7 @@ let currentUser = null;
 let myName = '';
 let myPhoto_url = '';
 let mySocketId = null;
+let waitingRoom = null;
 let partnerId = null;
 let pendingCallerId = null;
 let localStream = null;
@@ -97,25 +98,17 @@ socket.on('connect', () => {
 // ============================================================
 
 socket.on('waiting-list', (list) => {
-  userList.innerHTML = '';
-  list.forEach((user) => {
-    const isSelf = user.id === mySocketId;
-    const card = document.createElement('div');
-    card.className = 'user-card' + (isSelf ? ' self' : '');
-    card.innerHTML = `
-      <div class="user-info">
-        <img class="user-photo" src="${escapeAttr(user.photo)}" alt="">
-        <span class="name">${escapeHtml(user.name)}${isSelf ? ' (you)' : ''}</span>
-      </div>
-      ${isSelf ? '' : `<button onclick="requestCall('${user.id}')">call</button>`}
-    `;
-    userList.appendChild(card);
-  });
+  // Initialize waiting room if needed
+  if (!waitingRoom) {
+    const container = document.getElementById('waiting-room-canvas');
+    waitingRoom = new WaitingRoom(container);
+    waitingRoom.onCallRequest = (targetId) => {
+      socket.emit('call-request', targetId);
+    };
+    waitingRoom.start();
+  }
+  waitingRoom.updateUsers(list, mySocketId);
 });
-
-window.requestCall = function (targetId) {
-  socket.emit('call-request', targetId);
-};
 
 socket.on('incoming-call', (data) => {
   pendingCallerId = data.callerId;
@@ -145,6 +138,7 @@ socket.on('call-started', async (data) => {
   partnerId = data.partnerId;
   const roomName = data.room;
   console.log('Call started, joining room:', roomName);
+  if (waitingRoom) waitingRoom.stop();
   showScreen(callScreen);
 
   // Get local webcam
@@ -198,6 +192,7 @@ hangupBtn.addEventListener('click', hangUp);
 socket.on('partner-hung-up', () => {
   cleanUpCall();
   showScreen(waitingScreen);
+  if (waitingRoom) waitingRoom.start();
   socket.emit('join', { name: myName, photo: myPhoto_url });
 });
 
@@ -205,6 +200,7 @@ function hangUp() {
   socket.emit('hang-up');
   cleanUpCall();
   showScreen(waitingScreen);
+  if (waitingRoom) waitingRoom.start();
   socket.emit('join', { name: myName, photo: myPhoto_url });
 }
 

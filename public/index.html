@@ -16,15 +16,15 @@
 
   <!-- Waiting room -->
   <div id="waiting-screen" class="screen">
-    <div id="waiting-header">
-      <h2>waiting room</h2>
+    <div id="waiting-room-canvas"></div>
+    <div id="waiting-overlay">
       <div id="my-profile">
         <img id="my-photo" src="" alt="">
         <span id="my-name"></span>
         <button id="signout-btn">sign out</button>
       </div>
+      <div id="hover-name"></div>
     </div>
-    <div id="user-list"></div>
 
     <!-- Incoming call modal -->
     <div id="incoming-call" class="modal hidden">
@@ -49,6 +49,7 @@
     <div id="gaze-debug"></div>
   </div>
 
+  <script src="https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.min.js"></script>
   <script src="https://www.gstatic.com/firebasejs/11.0.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/11.0.0/firebase-auth-compat.js"></script>
   <script src="/socket.io/socket.io.js"></script>
@@ -56,6 +57,7 @@
   <script src="https://p5livemedia.itp.io/simplepeer.min.js"></script>
   <script src="https://p5livemedia.itp.io/p5livemedia.js"></script>
   <script src="https://unpkg.com/ml5@1/dist/ml5.min.js"></script>
-  <script src="app.js?v=20260328u"></script>
+  <script src="waiting-room.js?v=1"></script>
+  <script src="app.js?v=20260328v"></script>
 </body>
 </html>

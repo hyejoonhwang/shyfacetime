@@ -64,29 +64,38 @@ button:hover {
 
 /* --- Waiting room --- */
 #waiting-screen {
-  justify-content: flex-start;
-  padding-top: 40px;
-}
-
-#waiting-header {
-  display: flex;
-  flex-direction: column;
+  position: relative;
+  justify-content: center;
   align-items: center;
-  gap: 0.5rem;
-  margin-bottom: 2rem;
 }
 
-#waiting-header h2 {
-  font-size: 1.5rem;
-  font-weight: 300;
-  letter-spacing: 0.2em;
+#waiting-room-canvas {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+}
+
+#waiting-room-canvas canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+#waiting-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
 }
 
 #my-profile {
+  position: absolute;
+  top: 20px;
+  left: 20px;
   display: flex;
   align-items: center;
   gap: 0.6rem;
-  margin-top: 0.5rem;
+  pointer-events: auto;
 }
 
 #my-photo {
@@ -105,51 +114,19 @@ button:hover {
   padding: 0.3rem 0.8rem;
   color: #888;
   border-color: #2a2a2a;
+  pointer-events: auto;
 }
 
-#user-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  width: min(340px, 90vw);
-  max-height: 500px;
-  overflow-y: auto;
-}
-
-.user-card {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  background: #141414;
-  border: 1px solid #222;
-  padding: 0.7rem 1rem;
-  border-radius: 4px;
-}
-
-.user-info {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-}
-
-.user-photo {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-}
-
-.user-card .name {
-  font-size: 0.95rem;
-}
-
-.user-card button {
-  font-size: 0.8rem;
-  padding: 0.4rem 1rem;
-}
-
-.user-card.self {
-  border-color: #333;
-  opacity: 0.5;
+#hover-name {
+  position: absolute;
+  bottom: 40px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 1.1rem;
+  color: #ddd;
+  letter-spacing: 0.1em;
+  opacity: 0;
+  transition: opacity 0.3s;
 }
 
 /* --- Incoming call modal --- */
