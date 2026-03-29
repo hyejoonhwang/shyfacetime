@@ -68,12 +68,8 @@ void main() {
     // Blend: text blurs near mouse, blurred part is white
     vec4 finalColor = texColor;
     if (lens > 0.001) {
-      // Use blurred alpha to determine the expansion zone
-      float expansion = max(blurred.a - texColor.a, 0.0) * lens;
-      // Blur the original text
-      finalColor = mix(texColor, vec4(1.0, 1.0, 1.0, blurred.a), lens);
-      // Make the expanded area white
-      finalColor.rgb = vec3(1.0);
+      // Blur the text, expansion area same color as text
+      finalColor.rgb = texColor.rgb;
       finalColor.a = mix(texColor.a, blurred.a, lens);
     }
 
@@ -269,7 +265,7 @@ class WaitingRoom {
       u.y = u.originY + Math.cos(t * 0.3 + u.phase * 1.3) * 6;
 
       // Draw name text centered at the user position
-      ctx.fillStyle = '#ffffff';
+      ctx.fillStyle = '#333333';
       ctx.font = '36px "Shizuru", sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
