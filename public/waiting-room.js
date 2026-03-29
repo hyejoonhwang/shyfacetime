@@ -93,46 +93,66 @@ class WaitingRoom {
           vec2 uv = v_uv;
           vec2 aspect = vec2(u_resolution.x / u_resolution.y, 1.0);
 
-          // Distance from mouse (aspect-corrected)
           vec2 mouseUV = u_mouse;
           float dist = length((uv - mouseUV) * aspect);
 
-          // Lens radius — grows slightly during hold
-          float lensRadius = 0.12 + u_holdProgress * 0.05;
+          // Bigger lens, grows more during hold
+          float lensRadius = 0.18 + u_holdProgress * 0.08;
 
-          // Blur amount: strong everywhere, clear inside lens
-          float lensEdge = smoothstep(lensRadius, lensRadius * 0.3, dist);
-          float blurAmount = mix(5.0, 0.0, lensEdge * u_hasHover);
+          // Sharp lens edge with dramatic falloff
+          float lensEdge = smoothstep(lensRadius, lensRadius * 0.15, dist);
 
-          // Sample with blur
+          // Stronger base blur
+          float blurAmount = mix(8.0, 0.0, lensEdge * u_hasHover);
+
           vec4 blurred = blur(u_texture, uv, u_resolution, blurAmount);
           vec4 clear = texture2D(u_texture, uv);
           vec4 color = mix(blurred, clear, lensEdge * u_hasHover);
 
-          // Chromatic aberration at lens edge (the codrops distortion feel)
-          float ringZone = smoothstep(lensRadius * 0.9, lensRadius, dist) *
-                          smoothstep(lensRadius * 1.3, lensRadius, dist);
-          float aberration = ringZone * u_hasHover * (0.003 + u_holdProgress * 0.008);
+          // UV distortion — warp pixels near the lens edge (barrel distortion)
+          float distortZone = smoothstep(lensRadius * 1.4, lensRadius * 0.5, dist) * u_hasHover;
+          vec2 toMouse = uv - mouseUV;
+          float distortAmount = 0.03 + u_holdProgress * 0.06;
+          vec2 distortedUV = uv - toMouse * distortZone * distortAmount;
+          vec4 distorted = texture2D(u_texture, distortedUV);
+          color = mix(color, distorted, distortZone * 0.6);
+
+          // Strong chromatic aberration at lens edge
+          float ringZone = smoothstep(lensRadius * 0.7, lensRadius, dist) *
+                          smoothstep(lensRadius * 1.5, lensRadius, dist);
+          float aberration = ringZone * u_hasHover * (0.012 + u_holdProgress * 0.025);
           vec2 dir = normalize(uv - mouseUV) * aberration;
           color.r = mix(color.r, texture2D(u_texture, uv + dir).r, ringZone * u_hasHover);
           color.b = mix(color.b, texture2D(u_texture, uv - dir).b, ringZone * u_hasHover);
+
+          // Subtle brightness boost inside lens
+          color.rgb += vec3(0.06) * lensEdge * u_hasHover;
+
+          // Animated shimmer at lens edge
+          float shimmer = sin(dist * 80.0 - u_time * 3.0) * 0.5 + 0.5;
+          float edgeLine = smoothstep(0.008, 0.0, abs(dist - lensRadius)) * u_hasHover;
+          color.rgb += vec3(0.4, 0.5, 0.7) * edgeLine * shimmer * 0.5;
 
           // Hold progress ring
           if (u_holdProgress > 0.01) {
             float angle = atan(uv.y - mouseUV.y, (uv.x - mouseUV.x) * aspect.x);
             float ringDist = length((uv - mouseUV) * aspect);
-            float ringRadius = lensRadius * 1.05;
-            float ringWidth = 0.004 + u_holdProgress * 0.002;
+            float ringRadius = lensRadius * 1.08;
+            float ringWidth = 0.006 + u_holdProgress * 0.004;
             float ring = smoothstep(ringWidth, 0.0, abs(ringDist - ringRadius));
 
-            // Progress arc
             float progress = u_holdProgress;
             float a = mod(angle + 3.14159, 6.28318) / 6.28318;
             float arc = step(a, progress);
 
-            // Glow
+            // Brighter, wider glow
             float glow = ring * arc;
-            color.rgb += vec3(0.7, 0.8, 1.0) * glow * 0.8;
+            color.rgb += vec3(0.6, 0.7, 1.0) * glow * 1.2;
+
+            // Inner pulse during hold
+            float pulse = sin(u_time * 6.0) * 0.5 + 0.5;
+            float innerGlow = smoothstep(lensRadius, lensRadius * 0.5, dist) * u_holdProgress;
+            color.rgb += vec3(0.3, 0.4, 0.7) * innerGlow * pulse * 0.3;
           }
 
           gl_FragColor = color;
