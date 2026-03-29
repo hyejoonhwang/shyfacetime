@@ -70,6 +70,11 @@ void main() {
 
         // White in the expansion part (100% opaque white)
         color = mix(color, vec3(1.0), expansionZone);
+
+        // Circle outline stroke (always visible, attached to profile)
+        float strokeEdge = 0.002 + lens * radius * 0.3;
+        float avatarStroke = stroke(dist, radius, 0.003, strokeEdge) * 2.0;
+        color = mix(color, vec3(1.0), avatarStroke * 0.6);
     }
 
     gl_FragColor = vec4(color, 1.0);
