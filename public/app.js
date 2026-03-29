@@ -209,20 +209,25 @@ function hangUp() {
 }
 
 function cleanUpCall() {
-  if (p5lm) {
-    p5lm.disconnect(-1);
-    p5lm = null;
-  }
+  try {
+    if (p5lm) { p5lm.disconnect(-1); }
+  } catch (e) { console.error('p5lm disconnect error:', e); }
+  p5lm = null;
+
   if (p5Instance) {
     p5Instance.remove();
     p5Instance = null;
   }
-  faceMeshReady = false;
+
   if (watchdogId) { clearInterval(watchdogId); watchdogId = null; }
-  if (faceMesh) {
-    faceMesh.detectStop();
-    faceMesh = null;
-  }
+
+  // Stop detection but DON'T destroy faceMesh — it was preloaded
+  try {
+    if (faceMesh && typeof faceMesh.detectStop === 'function') {
+      faceMesh.detectStop();
+    }
+  } catch (e) { console.error('faceMesh stop error:', e); }
+
   if (frameLoopId) {
     cancelAnimationFrame(frameLoopId);
     frameLoopId = null;
@@ -233,13 +238,19 @@ function cleanUpCall() {
   }
   trackCanvas = null;
   trackCtx = null;
+
   // Clean up off-screen video/audio elements
   document.querySelectorAll('video[style*="-9999"], audio').forEach(el => {
     if (el.id !== 'local-video') el.remove();
   });
+  // Also clear the local video preview
+  const localVideo = document.getElementById('local-video');
+  if (localVideo) localVideo.srcObject = null;
+
   remoteVideo = null;
   partnerId = null;
   lookScore = 1;
+  console.log('Call cleaned up');
 }
 
 // ============================================================
