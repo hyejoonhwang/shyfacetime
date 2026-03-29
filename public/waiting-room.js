@@ -204,7 +204,7 @@ class WaitingRoom {
           y: pad + Math.random() * (this.h - pad * 2),
           vx: (Math.random() - 0.5) * 0.2,
           vy: (Math.random() - 0.5) * 0.2,
-          img: null, radius: 150
+          img: null, radius: 75
         };
         if (u.photo) {
           const img = new Image();
