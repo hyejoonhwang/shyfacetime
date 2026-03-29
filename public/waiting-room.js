@@ -245,12 +245,11 @@ class WaitingRoom {
     ctx.save();
     ctx.scale(dpr, dpr);
     for (const u of this.users) {
-      u.x += u.vx; u.y += u.vy;
-      const pad = u.radius + 10;
-      if (u.x < pad || u.x > this.w - pad) u.vx *= -1;
-      if (u.y < pad || u.y > this.h - pad) u.vy *= -1;
-      u.x = Math.max(pad, Math.min(this.w - pad, u.x));
-      u.y = Math.max(pad, Math.min(this.h - pad, u.y));
+      // Gentle floating in place (small oscillation around origin)
+      if (!u.originX) { u.originX = u.x; u.originY = u.y; u.phase = Math.random() * Math.PI * 2; }
+      const t = performance.now() * 0.001;
+      u.x = u.originX + Math.sin(t * 0.5 + u.phase) * 8;
+      u.y = u.originY + Math.cos(t * 0.3 + u.phase * 1.3) * 6;
 
       // Draw photo bigger than SDF radius so edge expansion reveals more
       const r = u.radius + 50;
