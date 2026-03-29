@@ -406,18 +406,11 @@ function onFaceResults(results) {
   lastResultTime = Date.now();
   if (!results || results.length === 0) {
     noFaceCount++;
-    // If face was detected before, "no face" means they looked away → clear
-    // If face was never detected, assume looking at screen → blur
-    if (faceEverDetected) {
-      lookScore = 0; // looked away
-    } else {
-      lookScore = 1; // still setting up
-    }
-    gazeDebug.textContent = `no face (${noFaceCount}) → ${lookScore}`;
+    lookScore = 1; // no face = assume looking at screen = blur
+    gazeDebug.textContent = `no face (${noFaceCount})`;
     return;
   }
   noFaceCount = 0;
-  faceEverDetected = true;
   const kp = results[0].keypoints;
   if (kp.length > 468) {
     const lO=kp[33],lI=kp[133],lIr=kp[468],rI=kp[362],rO=kp[263],rIr=kp[473];
@@ -426,12 +419,12 @@ function onFaceResults(results) {
     if(lW>1)lR=(lIr.x-Math.min(lO.x,lI.x))/lW;
     if(rW>1)rR=(rIr.x-Math.min(rO.x,rI.x))/rW;
     const iDev=(Math.abs(lR-0.5)+Math.abs(rR-0.5))/2;
-    const iS=1-Math.min(iDev*5,1);
+    const iS=1-Math.min(iDev*8,1); // more sensitive to eye movement
     const n=kp[1],lC=kp[234],rC=kp[454];
     const fW=Math.abs(rC.x-lC.x),fC=(lC.x+rC.x)/2;
     let hS=1;
     if(fW>1)hS=1-Math.min(Math.abs(n.x-fC)/fW*4,1);
-    lookScore=iS*0.6+hS*0.4;
+    lookScore=iS*0.85+hS*0.15; // iris dominant — eyes matter most
     gazeDebug.textContent=`iris:${iS.toFixed(2)} head:${hS.toFixed(2)} → ${lookScore.toFixed(2)}`;
   } else {
     const n=kp[1],lC=kp[234],rC=kp[454];
