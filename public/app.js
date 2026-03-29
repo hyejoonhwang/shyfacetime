@@ -166,6 +166,7 @@ socket.on('call-started', async (data) => {
   // p5LiveMedia needs a sketch-like object with createVideo()
   const sketchShim = {
     createVideo: function(stream) {
+      console.log('sketchShim.createVideo called with stream:', stream);
       const video = document.createElement('video');
       video.srcObject = stream;
       video.autoplay = true;
@@ -174,16 +175,15 @@ socket.on('call-started', async (data) => {
       video.style.left = '-9999px';
       document.body.appendChild(video);
       video.play().catch(e => console.error('Remote video play:', e));
-      // Return object with .elt like p5.MediaElement
       return { elt: video };
     }
   };
 
+  console.log('Creating p5LiveMedia for room:', roomName);
   p5lm = new p5LiveMedia(sketchShim, "CAPTURE", localStream, roomName);
 
   p5lm.on('stream', (stream, id) => {
-    console.log('p5LiveMedia: got remote stream from', id);
-    // stream is either { elt: HTMLVideoElement } or HTMLVideoElement
+    console.log('p5LiveMedia stream event! id:', id, 'stream:', stream);
     const videoEl = stream.elt || stream;
     remoteVideo = videoEl;
     startP5(videoEl);
@@ -191,6 +191,10 @@ socket.on('call-started', async (data) => {
 
   p5lm.on('disconnect', (id) => {
     console.log('p5LiveMedia: peer disconnected', id);
+  });
+
+  p5lm.on('connect', (id) => {
+    console.log('p5LiveMedia: connected to signaling server, my id:', id);
   });
 });
 
@@ -287,11 +291,15 @@ function startFaceMesh(stream) {
       drawFrame();
 
       setTimeout(() => {
+        let modelLoaded = false;
         faceMesh = ml5.faceMesh({
           maxFaces: 1,
           refineLandmarks: true,
           flipped: false
         }, () => {
+          // Guard: ml5 can fire this callback multiple times
+          if (modelLoaded) return;
+          modelLoaded = true;
           console.log('FaceMesh loaded, starting detection');
           faceMeshReady = true;
           startDetection();
