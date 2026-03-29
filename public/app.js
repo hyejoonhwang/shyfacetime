@@ -352,7 +352,7 @@ function startFaceMesh(stream) {
 function onFaceResults(results) {
   lastResultTime = Date.now();
   if (!results || results.length === 0) {
-    noFaceCount++; lookScore = 0;
+    noFaceCount++; lookScore = 1; // no face detected = assume looking at screen = blur
     gazeDebug.textContent = `no face (${noFaceCount})`;
     return;
   }
