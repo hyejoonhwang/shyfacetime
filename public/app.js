@@ -212,15 +212,24 @@ connectDeclineBtn.addEventListener('click', () => {
 socket.on('call-declined', () => showView('waiting'));
 
 // Partner gaze score
+let partnerLookTarget = 0; // raw incoming value
+let partnerBlurSmoothed = 0; // smoothed value for display
+
 socket.on('partner-gaze-score', (score) => {
-  partnerLookScore = score;
-  // Apply blur to local video based on partner's gaze
+  partnerLookTarget = score;
+});
+
+// Smooth partner blur with requestAnimationFrame
+function updatePartnerBlur() {
+  partnerBlurSmoothed += (partnerLookTarget * 40 - partnerBlurSmoothed) * 0.1;
   const localVid = document.getElementById('local-video');
   if (localVid) {
-    const pBlur = Math.round(score * 40);
-    localVid.style.filter = pBlur > 0 ? `blur(${pBlur}px)` : 'none';
+    const pBlur = Math.round(partnerBlurSmoothed);
+    localVid.style.filter = pBlur > 1 ? `blur(${pBlur}px)` : 'none';
   }
-});
+  requestAnimationFrame(updatePartnerBlur);
+}
+updatePartnerBlur();
 
 // ============================================================
 // 3. CALL SETUP (p5LiveMedia)
@@ -432,16 +441,18 @@ function onFaceResults(results) {
 function startP5(remoteVideoEl) {
   if (p5Instance) return;
   p5Instance = new p5((p) => {
-    let vidEl, blurAmount = 40, currentBlur = 40;
+    let vidEl, blurAmount = 40, currentBlur = 40, canvasEl;
     let cW, cH;
 
+    let ctxFilterWorks = false;
+
     p.setup = function () {
-      // Size canvas to fit inside the video-frame container
       const container = document.getElementById('canvas-container');
       cW = container.clientWidth;
       cH = container.clientHeight;
       const canvas = p.createCanvas(cW, cH);
       canvas.parent('canvas-container');
+      canvasEl = canvas.elt;
 
       vidEl = remoteVideoEl;
       if (vidEl.play) { vidEl.autoplay = true; vidEl.playsInline = true; vidEl.play().catch(() => {}); }
@@ -451,6 +462,13 @@ function startP5(remoteVideoEl) {
       audioEl.autoplay = true;
       document.body.appendChild(audioEl);
       audioEl.play().catch(() => {});
+
+      // Detect ctx.filter support
+      const testC = document.createElement('canvas');
+      const testCtx = testC.getContext('2d');
+      testCtx.filter = 'blur(1px)';
+      ctxFilterWorks = (testCtx.filter === 'blur(1px)');
+      console.log('ctx.filter supported:', ctxFilterWorks);
     };
 
     p.draw = function () {
@@ -483,15 +501,25 @@ function startP5(remoteVideoEl) {
 
       const ctx = p.drawingContext, blur = Math.round(currentBlur);
       ctx.save(); ctx.translate(cW, 0); ctx.scale(-1, 1);
-      ctx.filter = blur > 0 ? `blur(${blur}px)` : 'none';
-      ctx.drawImage(vidEl, dx, dy, dw, dh);
-      ctx.filter = 'none';
+
+      if (ctxFilterWorks) {
+        // Desktop: blur inside canvas pixels
+        ctx.filter = blur > 0 ? `blur(${blur}px)` : 'none';
+        ctx.drawImage(vidEl, dx, dy, dw, dh);
+        ctx.filter = 'none';
+        canvasEl.style.filter = 'none';
+      } else {
+        // Mobile: draw clean, apply CSS filter (contained by .video-frame)
+        ctx.drawImage(vidEl, dx, dy, dw, dh);
+        canvasEl.style.filter = blur > 0 ? `blur(${blur}px)` : 'none';
+      }
+
       ctx.restore();
 
-      if (currentBlur > 5) {
+      if (currentBlur > 5 && ctxFilterWorks) {
         const alpha = p.map(currentBlur, 5, blurAmount, 0, 60);
         p.noStroke();
-        p.fill(246, 244, 239, alpha); // light overlay matching bg
+        p.fill(246, 244, 239, alpha);
         p.rect(0, 0, cW, cH);
       }
     };
