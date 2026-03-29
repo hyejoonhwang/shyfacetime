@@ -128,35 +128,36 @@ class WaitingRoom {
           // Photo texture
           vec4 photoColor = texture2D(u_photos, uv);
 
+          // Mouse lens influence — smooth falloff from cursor point
+          float distToMouse = sdCircle(st, posMouse);
+          float lensInfluence = fill(distToMouse, 0.3, 0.5);
+
           // --- Render each avatar with codrops SDF lens blur ---
           for (int i = 0; i < ${MAX_USERS}; i++) {
             if (i >= u_count) break;
 
             vec2 aPos = u_positions[i];
             float aRad = u_radii[i];
-
-            // SDF of this avatar circle
             float sdf = sdCircle(st, aPos);
 
-            // Distance from mouse to this pixel (used as edge param)
-            // No visible circle — just raw distance falloff from mouse point
-            float distToMouse = sdCircle(st, posMouse);
-            float lensInfluence = fill(distToMouse, 0.3, 0.5);
+            // Edge scaled to avatar size — prevents blob, keeps gooey tension
+            // lensInfluence (0-1) × small factor = subtle edge expansion
+            float edgeAmount = lensInfluence * aRad * 1.5;
 
-            // Codrops technique: stroke with edge = lensInfluence
-            // Near mouse: edge is large → stroke expands with blur
-            // Far from mouse: edge is small → stroke is thin and crisp
-            float borderSize = 0.015;
-            float avatarStroke = stroke(sdf, aRad, borderSize, lensInfluence) * 4.0;
+            // Stroke: edge controlled by mouse proximity
+            // Near mouse: edge expands → stroke gets wide and soft (gooey)
+            // Far: edge ≈ 0 → stroke is thin and crisp
+            float borderSize = 0.01;
+            float avatarStroke = stroke(sdf, aRad, borderSize, edgeAmount) * 4.0;
 
-            // Fill with slight base softness
-            float avatarFill = fill(sdf, aRad - 0.01, 0.05);
+            // Fill: slight default softness for the blurry-but-visible look
+            float avatarFill = fill(sdf, aRad, 0.04);
 
             // Apply photo inside circle
             color = mix(color, photoColor.rgb, avatarFill);
 
-            // Add the stroke (the expanding blur edge)
-            color += vec3(1.0) * avatarStroke * 0.8;
+            // The stroke edge (white, expanding with gooey blur)
+            color += vec3(1.0) * avatarStroke * 0.7;
           }
 
           gl_FragColor = vec4(color, 1.0);
