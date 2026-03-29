@@ -251,7 +251,7 @@ class WaitingRoom {
           x: pad + Math.random() * (this.w - pad * 2),
           y: pad + Math.random() * (this.h - pad * 2),
           icon: this._randomIcon(),
-          radius: 75
+          radius: 40
         };
         this.users.push(newUser);
       } else {
@@ -285,18 +285,12 @@ class WaitingRoom {
       u.x = u.originX + Math.sin(t * 0.5 + u.phase) * 8;
       u.y = u.originY + Math.cos(t * 0.3 + u.phase * 1.3) * 6;
 
-      // Draw icon fitted inside the circle
-      const iconImg = this.icons[u.icon];
-      if (iconImg && iconImg.complete) {
-        const iconSize = u.radius * 1.2;
-        ctx.drawImage(iconImg, u.x - iconSize / 2, u.y - iconSize / 2, iconSize, iconSize);
-      }
-
-      // Name below
-      ctx.fillStyle = '#888';
-      ctx.font = '13px "Helvetica Neue", sans-serif';
+      // Draw name text centered at the user position
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '600 24px "Helvetica Neue", Arial, sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText(u.name, u.x, u.y + u.radius + 28);
+      ctx.textBaseline = 'middle';
+      ctx.fillText(u.name, u.x, u.y);
     }
     ctx.restore();
   }
