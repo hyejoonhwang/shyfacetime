@@ -494,12 +494,24 @@ function startP5(remoteVideoEl) {
       const ctx = p.drawingContext;
       const blurPx = Math.round(currentBlur);
 
+      // Flip horizontally (mirror) so remote person looks natural
+      ctx.save();
+      ctx.translate(canvasW, 0);
+      ctx.scale(-1, 1);
+
       if (!isMobile) {
         canvasEl.style.filter = 'none';
         ctx.filter = blurPx > 0 ? `blur(${blurPx}px)` : 'none';
         ctx.drawImage(vidEl, drawX, drawY, drawW, drawH);
         ctx.filter = 'none';
+      } else {
+        ctx.drawImage(vidEl, drawX, drawY, drawW, drawH);
+      }
 
+      ctx.restore();
+
+      // Overlays drawn without flip
+      if (!isMobile) {
         if (currentBlur > 5) {
           const alpha = p.map(currentBlur, 5, blurAmount, 0, 80);
           p.noStroke();
@@ -507,7 +519,6 @@ function startP5(remoteVideoEl) {
           p.rect(0, 0, canvasW, canvasH);
         }
       } else {
-        ctx.drawImage(vidEl, drawX, drawY, drawW, drawH);
         if (blurPx > 0) {
           canvasEl.style.filter = `blur(${blurPx}px) brightness(${p.map(currentBlur, 0, blurAmount, 1, 0.6)})`;
         } else {
