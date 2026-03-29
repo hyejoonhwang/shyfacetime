@@ -157,11 +157,9 @@ body {
 #login-screen {
   position: relative;
   align-items: center;
-  justify-content: flex-start;
-  overflow-y: auto;
-  scrollbar-width: none;
+  justify-content: center;
+  overflow: hidden;
 }
-#login-screen::-webkit-scrollbar { display: none; }
 
 #spline-bg {
   position: absolute;
@@ -183,53 +181,54 @@ body {
   align-items: center;
   width: 100%;
   max-width: 480px;
-  padding: 8vh 24px 4vh;
+  padding: 0 24px;
+  max-height: 100vh;
 }
 
 #login-screen h1 {
-  font-size: clamp(2rem, 5vw, 3rem);
+  font-size: clamp(1.6rem, 4vw, 2.4rem);
   font-weight: 700;
   letter-spacing: 0.02em;
-  margin-bottom: 0.8rem;
+  margin-bottom: 0.5rem;
   color: var(--text-primary);
 }
 
 .hook {
-  font-size: 1.05rem;
+  font-size: 0.9rem;
   color: var(--text-secondary);
   text-align: center;
-  line-height: 1.7;
-  margin-bottom: 2.5rem;
+  line-height: 1.6;
+  margin-bottom: 1.5rem;
   font-style: italic;
   font-weight: 300;
 }
 
 .story p, .explanation p {
-  font-size: 0.9rem;
+  font-size: 0.8rem;
   color: var(--text-secondary);
   text-align: center;
-  line-height: 1.8;
-  margin-bottom: 0.6rem;
+  line-height: 1.6;
+  margin-bottom: 0.3rem;
   font-weight: 300;
 }
 
 .story .story-cta {
   color: var(--brand);
-  font-size: 1rem;
+  font-size: 0.9rem;
   font-weight: 600;
-  margin-top: 1rem;
+  margin-top: 0.6rem;
 }
 
-.story { margin-bottom: 2rem; }
-.explanation { margin-bottom: 2.5rem; }
+.story { margin-bottom: 1.2rem; }
+.explanation { margin-bottom: 1.5rem; }
 
 .explanation .aside {
   color: var(--text-ghost);
   font-style: italic;
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   font-weight: 400;
   letter-spacing: 0.05em;
-  margin-bottom: 0.8rem;
+  margin-bottom: 0.5rem;
 }
 
 /* ============================================
