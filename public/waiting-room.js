@@ -260,11 +260,11 @@ class WaitingRoom {
       u.x = u.originX + Math.sin(t * 0.5 + u.phase) * 8;
       u.y = u.originY + Math.cos(t * 0.3 + u.phase * 1.3) * 6;
 
-      // Draw icon inside circle area
+      // Draw icon — fill the full area so the SDF shader controls the edge blur
       const iconImg = this.icons[u.icon];
       if (iconImg && iconImg.complete) {
-        const iconSize = u.radius * 1.2;
-        ctx.drawImage(iconImg, u.x - iconSize / 2, u.y - iconSize / 2, iconSize, iconSize);
+        const drawR = u.radius + 50; // larger than SDF radius so blur edge has content
+        ctx.drawImage(iconImg, u.x - drawR, u.y - drawR, drawR * 2, drawR * 2);
       }
 
       // Name below
