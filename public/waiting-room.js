@@ -70,9 +70,9 @@ void main() {
     vec2 st = coord(gl_FragCoord.xy) + 0.5;
     vec2 posMouse = coord(u_mouse * u_pixelRatio) * vec2(1., -1.) + 0.5;
 
-    /* sdf Circle (lens) params — from codrops */
-    float circleSize = 0.3;
-    float circleEdge = 0.5;
+    /* sdf Circle (lens) params — scaled down for avatar-sized shapes */
+    float circleSize = 0.06;
+    float circleEdge = 0.12;
 
     /* sdf Circle (lens around mouse) — from codrops */
     float sdfCircle = fill(
