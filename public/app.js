@@ -420,6 +420,13 @@ function startP5(remoteVideoEl) {
       }
       const targetBlur = lookScore * blurAmount;
       currentBlur = p.lerp(currentBlur, targetBlur, 0.12);
+
+      // Apply same blur to local video preview (shows what they see of you)
+      const localVid = document.getElementById('local-video');
+      if (localVid) {
+        const localBlur = Math.round(currentBlur);
+        localVid.style.filter = localBlur > 0 ? `blur(${localBlur}px)` : 'none';
+      }
       const vr = vidEl.videoWidth / vidEl.videoHeight, cr = canvasW / canvasH;
       let dw, dh, dx, dy;
       if (vr > cr) { dh = canvasH; dw = canvasH * vr; } else { dw = canvasW; dh = canvasW / vr; }
