@@ -54,7 +54,7 @@ let remoteVideo = null;
 let p5Instance = null;
 let faceMesh = null;
 let lookScore = 1;
-let partnerLookScore = 1;
+let partnerLookScore = 0; // clear until partner sends gaze data
 let lastGazeSendTime = 0;
 let isMuted = false;
 
@@ -214,6 +214,12 @@ socket.on('call-declined', () => showView('waiting'));
 // Partner gaze score
 socket.on('partner-gaze-score', (score) => {
   partnerLookScore = score;
+  // Apply blur to local video based on partner's gaze
+  const localVid = document.getElementById('local-video');
+  if (localVid) {
+    const pBlur = Math.round(score * 40);
+    localVid.style.filter = pBlur > 0 ? `blur(${pBlur}px)` : 'none';
+  }
 });
 
 // ============================================================
@@ -238,7 +244,7 @@ socket.on('call-started', async (data) => {
   localVideo.srcObject = localStream;
 
   // Update label
-  document.getElementById('my-video-label').textContent = myName;
+  document.getElementById('my-video-label').textContent = 'me';
 
   startFaceMesh(localStream);
 
@@ -467,12 +473,7 @@ function startP5(remoteVideoEl) {
         lastGazeSendTime = now;
       }
 
-      // Apply partner's gaze to local video (CSS filter — separate element, no bleed)
-      const localVid = document.getElementById('local-video');
-      if (localVid) {
-        const pBlur = Math.round(partnerLookScore * blurAmount);
-        localVid.style.filter = pBlur > 0 ? `blur(${pBlur}px)` : 'none';
-      }
+      // Partner gaze blur on local video is applied in the socket handler
 
       // Draw remote video with blur
       const vr = vidEl.videoWidth / vidEl.videoHeight, cr = cW / cH;
