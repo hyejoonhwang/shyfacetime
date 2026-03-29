@@ -1,10 +1,119 @@
 // ============================================================
-// Waiting Room — SDF Lens Blur on avatar circles
-// Effect from https://github.com/guilanier/codrops-sdf-lensblur
-// The cursor makes the circle edge expand and blur where it is
+// Waiting Room — using codrops SDF lens blur shader directly
+// Source: https://github.com/guilanier/codrops-sdf-lensblur
 // ============================================================
 
 const MAX_USERS = 20;
+
+// Fragment shader — copied from codrops fragment.glsl
+// Only change: replaced single shape with loop over avatar circles
+const FRAGMENT_SHADER = `
+precision highp float;
+varying vec2 v_texcoord;
+
+uniform vec2 u_mouse;
+uniform vec2 u_resolution;
+uniform float u_pixelRatio;
+uniform sampler2D u_photos;
+uniform vec2 u_positions[${MAX_USERS}];
+uniform float u_radii[${MAX_USERS}];
+uniform int u_count;
+
+/* common constants — from codrops */
+#ifndef PI
+#define PI 3.1415926535897932384626433832795
+#endif
+#ifndef TWO_PI
+#define TWO_PI 6.2831853071795864769252867665590
+#endif
+
+/* Coordinate and unit utils — from codrops */
+vec2 coord(in vec2 p) {
+    p = p / u_resolution.xy;
+    if (u_resolution.x > u_resolution.y) {
+        p.x *= u_resolution.x / u_resolution.y;
+        p.x += (u_resolution.y - u_resolution.x) / u_resolution.y / 2.0;
+    } else {
+        p.y *= u_resolution.y / u_resolution.x;
+        p.y += (u_resolution.x - u_resolution.y) / u_resolution.x / 2.0;
+    }
+    p -= 0.5;
+    p *= vec2(-1.0, 1.0);
+    return p;
+}
+
+/* signed distance functions — from codrops */
+float sdCircle(in vec2 st, in vec2 center) {
+    return length(st - center) * 2.0;
+}
+
+/* antialiased step function — from codrops */
+float aastep(float threshold, float value) {
+    float afwidth = length(vec2(dFdx(value), dFdy(value))) * 0.70710678118654757;
+    return smoothstep(threshold - afwidth, threshold + afwidth, value);
+}
+
+/* Signed distance drawing methods — from codrops */
+float fill(in float x) { return 1.0 - aastep(0.0, x); }
+float fill(float x, float size, float edge) {
+    return 1.0 - smoothstep(size - edge, size + edge, x);
+}
+float stroke(in float d, in float t) { return (1.0 - aastep(t, abs(d))); }
+float stroke(float x, float size, float w, float edge) {
+    float d = smoothstep(size - edge, size + edge, x + w * 0.5)
+            - smoothstep(size - edge, size + edge, x - w * 0.5);
+    return clamp(d, 0.0, 1.0);
+}
+
+void main() {
+    vec2 pixel = 1.0 / u_resolution.xy;
+    vec2 st = coord(gl_FragCoord.xy) + 0.5;
+    vec2 posMouse = coord(u_mouse * u_pixelRatio) * vec2(1., -1.) + 0.5;
+
+    /* sdf Circle (lens) params — from codrops */
+    float circleSize = 0.3;
+    float circleEdge = 0.5;
+
+    /* sdf Circle (lens around mouse) — from codrops */
+    float sdfCircle = fill(
+        sdCircle(st, posMouse),
+        circleSize,
+        circleEdge
+    );
+
+    vec3 color = vec3(0.04);
+    vec2 uv = v_texcoord;
+    vec4 photoColor = texture2D(u_photos, uv);
+
+    /* Loop over avatar circles — using VAR==2 technique from codrops:
+       sdf circle with stroke param adjusted by sdf circle */
+    for (int i = 0; i < ${MAX_USERS}; i++) {
+        if (i >= u_count) break;
+
+        float sdf = sdCircle(st, u_positions[i]);
+
+        /* stroke with edge = sdfCircle — copied from codrops VAR==2 */
+        float avatarStroke = stroke(sdf, u_radii[i], 0.02, sdfCircle) * 4.0;
+
+        /* fill for photo content */
+        float avatarFill = fill(sdf, u_radii[i], 0.04);
+
+        color = mix(color, photoColor.rgb, avatarFill);
+        color += vec3(1.0) * avatarStroke;
+    }
+
+    gl_FragColor = vec4(color, 1.0);
+}
+`;
+
+// Vertex shader — from codrops main.js
+const VERTEX_SHADER = `
+varying vec2 v_texcoord;
+void main() {
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    v_texcoord = uv;
+}
+`;
 
 class WaitingRoom {
   constructor(container) {
@@ -18,6 +127,7 @@ class WaitingRoom {
     this.active = false;
     this.lastTime = 0;
 
+    // From codrops main.js
     this.vMouse = new THREE.Vector2();
     this.vMouseDamp = new THREE.Vector2();
     this.vResolution = new THREE.Vector2();
@@ -27,30 +137,28 @@ class WaitingRoom {
   }
 
   _initThree() {
-    const w = window.innerWidth;
-    const h = window.innerHeight;
-    const dpr = Math.min(window.devicePixelRatio, 2);
-    this.w = w;
-    this.h = h;
-    this.dpr = dpr;
+    // Scene setup — from codrops main.js
+    this.scene = new THREE.Scene();
+    this.camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 1000);
+    this.camera.position.z = 1;
+    this.renderer = new THREE.WebGLRenderer();
+    this.container.appendChild(this.renderer.domElement);
 
-    // Offscreen canvas: avatar photos
+    this.w = window.innerWidth;
+    this.h = window.innerHeight;
+    this.dpr = Math.min(window.devicePixelRatio, 2);
+
+    // Offscreen canvas for avatar photos
     this.photoCanvas = document.createElement('canvas');
-    this.photoCanvas.width = w * dpr;
-    this.photoCanvas.height = h * dpr;
+    this.photoCanvas.width = this.w * this.dpr;
+    this.photoCanvas.height = this.h * this.dpr;
     this.photoCtx = this.photoCanvas.getContext('2d');
 
     this.photoTexture = new THREE.CanvasTexture(this.photoCanvas);
     this.photoTexture.minFilter = THREE.LinearFilter;
     this.photoTexture.magFilter = THREE.LinearFilter;
 
-    // Three.js setup (mirrors codrops)
-    this.scene = new THREE.Scene();
-    this.camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 1000);
-    this.camera.position.z = 1;
-    this.renderer = new THREE.WebGLRenderer({ antialias: true });
-    this.container.appendChild(this.renderer.domElement);
-
+    // Uniform arrays for avatar positions
     const posArray = [];
     const radArray = [];
     for (let i = 0; i < MAX_USERS; i++) {
@@ -58,111 +166,18 @@ class WaitingRoom {
       radArray.push(0.0);
     }
 
+    // Plane geometry — from codrops main.js
     const geo = new THREE.PlaneGeometry(1, 1);
+
+    // Shader material — from codrops main.js
     const mat = new THREE.ShaderMaterial({
-      vertexShader: `
-        varying vec2 v_texcoord;
-        void main() {
-          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-          v_texcoord = uv;
-        }
-      `,
-      fragmentShader: `
-        precision highp float;
-        varying vec2 v_texcoord;
-        uniform vec2 u_mouse;
-        uniform vec2 u_resolution;
-        uniform float u_pixelRatio;
-        uniform sampler2D u_photos;
-        uniform float u_holdProgress;
-        uniform float u_time;
-        uniform vec2 u_positions[${MAX_USERS}];
-        uniform float u_radii[${MAX_USERS}];
-        uniform int u_count;
-
-        #define PI 3.14159265358979
-
-        // --- Coordinate system (from codrops) ---
-        vec2 coord(in vec2 p) {
-          p = p / u_resolution.xy;
-          if (u_resolution.x > u_resolution.y) {
-            p.x *= u_resolution.x / u_resolution.y;
-            p.x += (u_resolution.y - u_resolution.x) / u_resolution.y / 2.0;
-          } else {
-            p.y *= u_resolution.y / u_resolution.x;
-            p.y += (u_resolution.x - u_resolution.y) / u_resolution.x / 2.0;
-          }
-          p -= 0.5;
-          p *= vec2(-1.0, 1.0);
-          return p;
-        }
-
-        // --- SDF functions (from codrops) ---
-        float sdCircle(in vec2 st, in vec2 center) {
-          return length(st - center) * 2.0;
-        }
-
-        float aastep(float threshold, float value) {
-          float afwidth = length(vec2(dFdx(value), dFdy(value))) * 0.70710678118654757;
-          return smoothstep(threshold - afwidth, threshold + afwidth, value);
-        }
-
-        float fill(float x, float size, float edge) {
-          return 1.0 - smoothstep(size - edge, size + edge, x);
-        }
-
-        float stroke(float x, float size, float w, float edge) {
-          float d = smoothstep(size - edge, size + edge, x + w * 0.5)
-                  - smoothstep(size - edge, size + edge, x - w * 0.5);
-          return clamp(d, 0.0, 1.0);
-        }
-
-        void main() {
-          vec2 st = coord(gl_FragCoord.xy) + 0.5;
-          vec2 posMouse = coord(u_mouse * u_pixelRatio) * vec2(1., -1.) + 0.5;
-          vec2 uv = v_texcoord;
-
-          // Background
-          vec3 color = vec3(0.04);
-
-          // Photo texture
-          vec4 photoColor = texture2D(u_photos, uv);
-
-          // Lens influence — TIGHT zone around cursor point
-          // Small size + edge so only the closest part of a shape edge is affected
-          float sdfLens = fill(sdCircle(st, posMouse), 0.04, 0.08);
-
-          // --- Render each avatar (same structure as codrops) ---
-          for (int i = 0; i < ${MAX_USERS}; i++) {
-            if (i >= u_count) break;
-
-            vec2 aPos = u_positions[i];
-            float aRad = u_radii[i];
-            float sdf = sdCircle(st, aPos);
-
-            // Exactly like codrops: stroke(sdf, size, borderSize, sdfLens)
-            // sdfLens IS the edge parameter — only pixels near the cursor
-            // get a large edge, so only that part of the circle expands
-            float borderSize = 0.01;
-            float avatarStroke = stroke(sdf, aRad, borderSize, sdfLens) * 4.0;
-
-            // Fill
-            float avatarFill = fill(sdf, aRad, 0.04);
-
-            color = mix(color, photoColor.rgb, avatarFill);
-            color += vec3(1.0) * avatarStroke * 0.7;
-          }
-
-          gl_FragColor = vec4(color, 1.0);
-        }
-      `,
+      vertexShader: VERTEX_SHADER,
+      fragmentShader: FRAGMENT_SHADER,
       uniforms: {
         u_mouse: { value: this.vMouseDamp },
         u_resolution: { value: this.vResolution },
-        u_pixelRatio: { value: dpr },
+        u_pixelRatio: { value: this.dpr },
         u_photos: { value: this.photoTexture },
-        u_holdProgress: { value: 0.0 },
-        u_time: { value: 0.0 },
         u_positions: { value: posArray },
         u_radii: { value: radArray },
         u_count: { value: 0 }
@@ -172,39 +187,48 @@ class WaitingRoom {
     this.quad = new THREE.Mesh(geo, mat);
     this.scene.add(this.quad);
     this.material = mat;
+
     this._resize();
   }
 
+  // Resize — from codrops main.js
   _resize() {
-    const w = window.innerWidth;
-    const h = window.innerHeight;
-    const dpr = Math.min(window.devicePixelRatio, 2);
-    this.w = w; this.h = h; this.dpr = dpr;
-    this.renderer.setSize(w, h);
-    this.renderer.setPixelRatio(dpr);
-    this.photoCanvas.width = w * dpr;
-    this.photoCanvas.height = h * dpr;
-    this.camera.left = -w / 2;
-    this.camera.right = w / 2;
-    this.camera.top = h / 2;
-    this.camera.bottom = -h / 2;
+    this.w = window.innerWidth;
+    this.h = window.innerHeight;
+    this.dpr = Math.min(window.devicePixelRatio, 2);
+
+    this.renderer.setSize(this.w, this.h);
+    this.renderer.setPixelRatio(this.dpr);
+
+    this.camera.left = -this.w / 2;
+    this.camera.right = this.w / 2;
+    this.camera.top = this.h / 2;
+    this.camera.bottom = -this.h / 2;
     this.camera.updateProjectionMatrix();
-    this.quad.scale.set(w, h, 1);
-    this.vResolution.set(w, h).multiplyScalar(dpr);
-    this.material.uniforms.u_pixelRatio.value = dpr;
+
+    this.quad.scale.set(this.w, this.h, 1);
+    this.vResolution.set(this.w, this.h).multiplyScalar(this.dpr);
+    this.material.uniforms.u_pixelRatio.value = this.dpr;
+
+    this.photoCanvas.width = this.w * this.dpr;
+    this.photoCanvas.height = this.h * this.dpr;
   }
 
   _initEvents() {
-    const onMove = (e) => {
+    // Mouse tracking — from codrops main.js
+    const onPointerMove = (e) => {
       this.vMouse.set(
-        e.touches ? e.touches[0].clientX : e.clientX,
-        e.touches ? e.touches[0].clientY : e.clientY
+        e.touches ? e.touches[0].pageX : e.pageX,
+        e.touches ? e.touches[0].pageY : e.pageY
       );
     };
+    document.addEventListener('mousemove', onPointerMove);
+    document.addEventListener('pointermove', onPointerMove);
+
     const onDown = (e) => {
       this.vMouse.set(
-        e.touches ? e.touches[0].clientX : e.clientX,
-        e.touches ? e.touches[0].clientY : e.clientY
+        e.touches ? e.touches[0].pageX : e.pageX,
+        e.touches ? e.touches[0].pageY : e.pageY
       );
       this._updateHover();
       if (this.hoveredUser) {
@@ -218,8 +242,6 @@ class WaitingRoom {
       this.holdStart = 0;
       this.holdTarget = null;
     };
-    window.addEventListener('mousemove', onMove);
-    window.addEventListener('touchmove', onMove, { passive: true });
     window.addEventListener('mousedown', onDown);
     window.addEventListener('touchstart', onDown, { passive: true });
     window.addEventListener('mouseup', onUp);
@@ -297,18 +319,18 @@ class WaitingRoom {
       u.x = Math.max(pad, Math.min(this.w - pad, u.x));
       u.y = Math.max(pad, Math.min(this.h - pad, u.y));
 
-      // Draw photo in circle (larger than SDF radius so edge blur reveals it)
+      // Draw photo (larger than SDF radius so stroke expansion reveals it)
       ctx.save();
       ctx.beginPath();
-      ctx.arc(u.x, u.y, u.radius + 30, 0, Math.PI * 2);
+      ctx.arc(u.x, u.y, u.radius + 40, 0, Math.PI * 2);
       ctx.closePath();
       ctx.clip();
       if (u.img) {
-        const r = u.radius + 30;
+        const r = u.radius + 40;
         ctx.drawImage(u.img, u.x - r, u.y - r, r * 2, r * 2);
       } else {
         ctx.fillStyle = '#333';
-        ctx.fillRect(u.x - u.radius - 30, u.y - u.radius - 30, (u.radius + 30) * 2, (u.radius + 30) * 2);
+        ctx.fillRect(u.x - 90, u.y - 90, 180, 180);
         ctx.fillStyle = '#aaa';
         ctx.font = '24px sans-serif';
         ctx.textAlign = 'center';
@@ -321,12 +343,12 @@ class WaitingRoom {
       ctx.fillStyle = '#888';
       ctx.font = '12px "Helvetica Neue", sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText(u.name, u.x, u.y + u.radius + 48);
+      ctx.fillText(u.name, u.x, u.y + u.radius + 22);
     }
     ctx.restore();
   }
 
-  // Convert pixel position to codrops shader coord space
+  // Convert pixel position to codrops shader coordinate space
   _toShaderCoord(px, py) {
     const dpr = this.dpr;
     const rw = this.w * dpr;
@@ -338,27 +360,31 @@ class WaitingRoom {
     } else {
       y = y * (rh / rw) + (rw - rh) / rw / 2.0;
     }
-    x = -(x - 0.5) + 0.5;
-    y = (y - 0.5) + 0.5;
-    return [x, y];
+    // coord() does: p -= 0.5; p *= vec2(-1, 1);
+    // Then main() does: st = coord(...) + 0.5
+    // So st = (-1*(x-0.5)+0.5, (y-0.5)+0.5) = (1-x, y)
+    return [1.0 - x, y];
   }
 
+  // Animation loop — from codrops main.js
   _animate() {
     if (!this.active) return;
     requestAnimationFrame(() => this._animate());
+
     const time = performance.now() * 0.001;
     const dt = time - this.lastTime;
     this.lastTime = time;
 
-    // Mouse damping (from codrops)
-    this.vMouseDamp.x = THREE.MathUtils.damp(this.vMouseDamp.x, this.vMouse.x, 8, dt);
-    this.vMouseDamp.y = THREE.MathUtils.damp(this.vMouseDamp.y, this.vMouse.y, 8, dt);
+    // Mouse damping — from codrops main.js
+    for (const k of ['x', 'y']) {
+      this.vMouseDamp[k] = THREE.MathUtils.damp(this.vMouseDamp[k], this.vMouse[k], 8, dt);
+    }
 
     this._updateHover();
 
-    let holdProgress = 0;
+    // Hold logic
     if (this.holding && this.holdTarget) {
-      holdProgress = Math.min((Date.now() - this.holdStart) / 2000, 1.0);
+      const holdProgress = Math.min((Date.now() - this.holdStart) / 2000, 1.0);
       if (holdProgress >= 1.0) {
         this.holding = false;
         if (this.onCallRequest) this.onCallRequest(this.holdTarget.id);
@@ -370,11 +396,8 @@ class WaitingRoom {
     this._drawPhotos();
     this.photoTexture.needsUpdate = true;
 
-    // Update uniforms
-    this.material.uniforms.u_holdProgress.value = holdProgress;
-    this.material.uniforms.u_time.value = time;
+    // Update avatar uniforms
     this.material.uniforms.u_count.value = this.users.length;
-
     const positions = this.material.uniforms.u_positions.value;
     const radii = this.material.uniforms.u_radii.value;
     for (let i = 0; i < MAX_USERS; i++) {
@@ -388,6 +411,7 @@ class WaitingRoom {
       }
     }
 
+    // Hover name
     const el = document.getElementById('hover-name');
     if (el) {
       if (this.hoveredUser) {
