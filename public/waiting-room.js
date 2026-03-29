@@ -55,9 +55,8 @@ void main() {
         // Distance from mouse to this pixel (aspect corrected)
         float mouseDist = length((uv - mouse) * u_aspect);
 
-        // Lens influence: how much the mouse affects THIS pixel
-        // Tight falloff so only the closest part of the edge reacts
-        float lens = smoothstep(radius * 0.8, 0.0, mouseDist);
+        // Lens influence: very tight falloff — only a small arc near cursor reacts
+        float lens = smoothstep(radius * 0.35, 0.0, mouseDist);
 
         // Fill: the avatar circle, slight default soft edge
         float baseSoft = 0.003;
