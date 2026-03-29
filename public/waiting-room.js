@@ -1,7 +1,7 @@
 // ============================================================
 // Waiting Room — SDF Lens Blur on avatar circles
-// Shader technique from https://github.com/guilanier/codrops-sdf-lensblur
-// The lens (cursor) controls the edge sharpness of each avatar circle
+// Effect from https://github.com/guilanier/codrops-sdf-lensblur
+// The cursor makes the circle edge expand and blur where it is
 // ============================================================
 
 const MAX_USERS = 20;
@@ -30,12 +30,11 @@ class WaitingRoom {
     const w = window.innerWidth;
     const h = window.innerHeight;
     const dpr = Math.min(window.devicePixelRatio, 2);
-
     this.w = w;
     this.h = h;
     this.dpr = dpr;
 
-    // Offscreen canvas: avatar photos drawn here, used as texture
+    // Offscreen canvas: avatar photos
     this.photoCanvas = document.createElement('canvas');
     this.photoCanvas.width = w * dpr;
     this.photoCanvas.height = h * dpr;
@@ -45,19 +44,17 @@ class WaitingRoom {
     this.photoTexture.minFilter = THREE.LinearFilter;
     this.photoTexture.magFilter = THREE.LinearFilter;
 
-    // Three.js — matching codrops structure exactly
+    // Three.js setup (mirrors codrops)
     this.scene = new THREE.Scene();
     this.camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 1000);
     this.camera.position.z = 1;
-
     this.renderer = new THREE.WebGLRenderer({ antialias: true });
     this.container.appendChild(this.renderer.domElement);
 
-    // Avatar positions as uniform array
     const posArray = [];
     const radArray = [];
     for (let i = 0; i < MAX_USERS; i++) {
-      posArray.push(new THREE.Vector2(0, 0));
+      posArray.push(new THREE.Vector2(-10, -10));
       radArray.push(0.0);
     }
 
@@ -73,24 +70,19 @@ class WaitingRoom {
       fragmentShader: `
         precision highp float;
         varying vec2 v_texcoord;
-
         uniform vec2 u_mouse;
         uniform vec2 u_resolution;
         uniform float u_pixelRatio;
         uniform sampler2D u_photos;
         uniform float u_holdProgress;
-        uniform float u_hasHover;
         uniform float u_time;
-
-        // Avatar data
         uniform vec2 u_positions[${MAX_USERS}];
         uniform float u_radii[${MAX_USERS}];
         uniform int u_count;
 
-        #define PI 3.1415926535897932
-        #define TWO_PI 6.2831853071795865
+        #define PI 3.14159265358979
 
-        // --- Coordinate utils (from codrops) ---
+        // --- Coordinate system (from codrops) ---
         vec2 coord(in vec2 p) {
           p = p / u_resolution.xy;
           if (u_resolution.x > u_resolution.y) {
@@ -127,80 +119,76 @@ class WaitingRoom {
 
         void main() {
           vec2 st = coord(gl_FragCoord.xy) + 0.5;
-          vec2 posMouse = coord(u_mouse * u_pixelRatio) * vec2(1.0, -1.0) + 0.5;
+          vec2 posMouse = coord(u_mouse * u_pixelRatio) * vec2(1., -1.) + 0.5;
           vec2 uv = v_texcoord;
 
-          // --- Lens SDF (from codrops): circle around cursor ---
-          float lensCircleSize = 0.25 + u_holdProgress * 0.1;
-          float lensCircleEdge = 0.5 + u_holdProgress * 0.2;
+          // --- The lens: SDF circle around cursor (from codrops) ---
+          // This fill value is used as the EDGE parameter for avatar shapes
+          float circleSize = 0.3;
+          float circleEdge = 0.5;
           float sdfLens = fill(
             sdCircle(st, posMouse),
-            lensCircleSize,
-            lensCircleEdge
-          ) * u_hasHover;
+            circleSize,
+            circleEdge
+          );
 
-          // --- Background ---
+          // Background
           vec3 color = vec3(0.04);
 
-          // --- Render each avatar as SDF circle ---
-          // Edge controlled by lens proximity (the codrops technique)
+          // Photo texture (with slight blur for default state)
+          vec2 pixel = 1.0 / u_resolution;
+          vec4 photoBlurred = vec4(0.0);
+          float tw = 0.0;
+          for (float bx = -2.0; bx <= 2.0; bx += 1.0) {
+            for (float by = -2.0; by <= 2.0; by += 1.0) {
+              float bw = exp(-0.5 * (bx*bx + by*by) / 3.0);
+              photoBlurred += texture2D(u_photos, uv + vec2(bx, by) * pixel * 3.0) * bw;
+              tw += bw;
+            }
+          }
+          photoBlurred /= tw;
+          vec4 photoSharp = texture2D(u_photos, uv);
+
+          // --- Render each avatar circle with SDF lens blur ---
           for (int i = 0; i < ${MAX_USERS}; i++) {
             if (i >= u_count) break;
 
-            vec2 avatarSt = u_positions[i];
-            float avatarRad = u_radii[i];
+            vec2 aPos = u_positions[i];
+            float aRad = u_radii[i];
+            float sdf = sdCircle(st, aPos);
 
-            float d = sdCircle(st, avatarSt);
+            // === THE CODROPS TECHNIQUE ===
+            // sdfLens (0-1) is used as the edge parameter
+            // Where cursor is near: sdfLens is high → edge is large
+            //   → stroke expands and blurs outward
+            // Where cursor is far: sdfLens is low → edge is small
+            //   → stroke is thin and sharp
 
-            // THE KEY: lens SDF value controls the edge parameter
-            // Far from cursor: sdfLens ~0 → large edge → soft/blurry circle
-            // Near cursor: sdfLens ~1 → small edge → sharp circle
-            float baseEdge = 0.5;  // default: very soft
-            float sharpEdge = 0.01; // when lens is active: crisp
-            float edge = mix(baseEdge, sharpEdge, sdfLens);
+            // Avatar circle stroke — edge controlled by lens
+            float borderSize = 0.015;
+            float avatarStroke = stroke(sdf, aRad, borderSize, sdfLens) * 4.0;
 
-            // Circle fill with lens-controlled edge
-            float avatarFill = fill(d, avatarRad, edge);
+            // Avatar circle fill — slight base softness, lens adds more
+            float baseSoftness = 0.06;
+            float avatarFill = fill(sdf, aRad - 0.01, baseSoftness + sdfLens * 0.02);
 
-            // Stroke ring that appears with lens
-            float avatarStroke = stroke(d, avatarRad, 0.008, edge) * 2.0 * sdfLens;
+            // Mix blurry and sharp photo based on lens proximity
+            vec4 photo = mix(photoBlurred, photoSharp, sdfLens * 0.7 + 0.3);
 
-            // Sample photo texture
-            vec4 photo = texture2D(u_photos, uv);
+            // Apply photo inside circle
+            color = mix(color, photo.rgb, avatarFill);
 
-            // Blurred photo sample (for soft state)
-            vec2 pixel = 1.0 / u_resolution;
-            vec4 blurredPhoto = vec4(0.0);
-            float tw = 0.0;
-            float blurAmt = 6.0 * (1.0 - sdfLens);
-            for (float bx = -3.0; bx <= 3.0; bx += 1.5) {
-              for (float by = -3.0; by <= 3.0; by += 1.5) {
-                float bw = exp(-0.5 * (bx*bx + by*by) / 4.0);
-                blurredPhoto += texture2D(u_photos, uv + vec2(bx, by) * pixel * blurAmt) * bw;
-                tw += bw;
-              }
-            }
-            blurredPhoto /= tw;
-
-            // Mix clear and blurred based on lens
-            vec4 finalPhoto = mix(blurredPhoto, photo, sdfLens);
-
-            // Apply to color
-            color = mix(color, finalPhoto.rgb, avatarFill);
-
-            // Add stroke ring (white, subtle)
-            color += vec3(0.6) * avatarStroke;
+            // Add the SDF stroke (white, the lens blur ring)
+            color += vec3(1.0) * avatarStroke * 0.8;
           }
 
           // --- Hold progress arc ---
           if (u_holdProgress > 0.01) {
             float angle = atan(st.y - posMouse.y, st.x - posMouse.x);
             float d = sdCircle(st, posMouse);
-            float arcStroke = stroke(d, lensCircleSize * 2.0, 0.015, 0.02) * 3.0;
-
-            float a = mod(angle + PI, TWO_PI) / TWO_PI;
+            float arcStroke = stroke(d, circleSize * 1.8, 0.015, 0.02) * 3.0;
+            float a = mod(angle + PI, PI * 2.0) / (PI * 2.0);
             float arc = step(a, u_holdProgress);
-
             color += vec3(0.5, 0.6, 1.0) * arcStroke * arc;
           }
 
@@ -213,7 +201,6 @@ class WaitingRoom {
         u_pixelRatio: { value: dpr },
         u_photos: { value: this.photoTexture },
         u_holdProgress: { value: 0.0 },
-        u_hasHover: { value: 0.0 },
         u_time: { value: 0.0 },
         u_positions: { value: posArray },
         u_radii: { value: radArray },
@@ -224,7 +211,6 @@ class WaitingRoom {
     this.quad = new THREE.Mesh(geo, mat);
     this.scene.add(this.quad);
     this.material = mat;
-
     this._resize();
   }
 
@@ -232,22 +218,16 @@ class WaitingRoom {
     const w = window.innerWidth;
     const h = window.innerHeight;
     const dpr = Math.min(window.devicePixelRatio, 2);
-    this.w = w;
-    this.h = h;
-    this.dpr = dpr;
-
+    this.w = w; this.h = h; this.dpr = dpr;
     this.renderer.setSize(w, h);
     this.renderer.setPixelRatio(dpr);
-
     this.photoCanvas.width = w * dpr;
     this.photoCanvas.height = h * dpr;
-
     this.camera.left = -w / 2;
     this.camera.right = w / 2;
     this.camera.top = h / 2;
     this.camera.bottom = -h / 2;
     this.camera.updateProjectionMatrix();
-
     this.quad.scale.set(w, h, 1);
     this.vResolution.set(w, h).multiplyScalar(dpr);
     this.material.uniforms.u_pixelRatio.value = dpr;
@@ -260,7 +240,6 @@ class WaitingRoom {
         e.touches ? e.touches[0].clientY : e.clientY
       );
     };
-
     const onDown = (e) => {
       this.vMouse.set(
         e.touches ? e.touches[0].clientX : e.clientX,
@@ -273,13 +252,11 @@ class WaitingRoom {
         this.holdTarget = this.hoveredUser;
       }
     };
-
     const onUp = () => {
       this.holding = false;
       this.holdStart = 0;
       this.holdTarget = null;
     };
-
     window.addEventListener('mousemove', onMove);
     window.addEventListener('touchmove', onMove, { passive: true });
     window.addEventListener('mousedown', onDown);
@@ -300,16 +277,15 @@ class WaitingRoom {
   updateUsers(userList, myId) {
     const currentIds = new Set(userList.map(u => u.id));
     this.users = this.users.filter(u => currentIds.has(u.id));
-
     for (const u of userList) {
       if (u.id === myId) continue;
       let existing = this.users.find(eu => eu.id === u.id);
       if (!existing) {
-        const padding = 120;
+        const pad = 120;
         const newUser = {
           id: u.id, name: u.name, photo: u.photo,
-          x: padding + Math.random() * (this.w - padding * 2),
-          y: padding + Math.random() * (this.h - padding * 2),
+          x: pad + Math.random() * (this.w - pad * 2),
+          y: pad + Math.random() * (this.h - pad * 2),
           vx: (Math.random() - 0.5) * 0.3,
           vy: (Math.random() - 0.5) * 0.3,
           img: null, radius: 50
@@ -346,37 +322,34 @@ class WaitingRoom {
     }
   }
 
-  // Draw photos to offscreen canvas (the shader reads this as texture)
   _drawPhotos() {
     const ctx = this.photoCtx;
     const dpr = this.dpr;
     ctx.clearRect(0, 0, this.photoCanvas.width, this.photoCanvas.height);
     ctx.save();
     ctx.scale(dpr, dpr);
-
     for (const u of this.users) {
-      // Float
-      u.x += u.vx;
-      u.y += u.vy;
+      u.x += u.vx; u.y += u.vy;
       const pad = u.radius + 10;
       if (u.x < pad || u.x > this.w - pad) u.vx *= -1;
       if (u.y < pad || u.y > this.h - pad) u.vy *= -1;
       u.x = Math.max(pad, Math.min(this.w - pad, u.x));
       u.y = Math.max(pad, Math.min(this.h - pad, u.y));
 
-      // Draw circular photo
+      // Draw photo in circle (larger than SDF radius so edge blur reveals it)
       ctx.save();
       ctx.beginPath();
-      ctx.arc(u.x, u.y, u.radius, 0, Math.PI * 2);
+      ctx.arc(u.x, u.y, u.radius + 30, 0, Math.PI * 2);
       ctx.closePath();
       ctx.clip();
       if (u.img) {
-        ctx.drawImage(u.img, u.x - u.radius, u.y - u.radius, u.radius * 2, u.radius * 2);
+        const r = u.radius + 30;
+        ctx.drawImage(u.img, u.x - r, u.y - r, r * 2, r * 2);
       } else {
-        ctx.fillStyle = '#444';
-        ctx.fill();
+        ctx.fillStyle = '#333';
+        ctx.fillRect(u.x - u.radius - 30, u.y - u.radius - 30, (u.radius + 30) * 2, (u.radius + 30) * 2);
         ctx.fillStyle = '#aaa';
-        ctx.font = '22px sans-serif';
+        ctx.font = '24px sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(u.name[0] || '?', u.x, u.y);
@@ -387,23 +360,22 @@ class WaitingRoom {
       ctx.fillStyle = '#888';
       ctx.font = '12px "Helvetica Neue", sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText(u.name, u.x, u.y + u.radius + 18);
+      ctx.fillText(u.name, u.x, u.y + u.radius + 48);
     }
     ctx.restore();
   }
 
-  // Convert avatar pixel position to shader coordinate space
+  // Convert pixel position to codrops shader coord space
   _toShaderCoord(px, py) {
     const dpr = this.dpr;
-    const w = this.w * dpr;
-    const h = this.h * dpr;
-    // Match the coord() function in the shader
-    let x = (px * dpr) / w;
-    let y = (py * dpr) / h;
-    if (w > h) {
-      x = x * (w / h) + (h - w) / h / 2.0;
+    const rw = this.w * dpr;
+    const rh = this.h * dpr;
+    let x = (px * dpr) / rw;
+    let y = (py * dpr) / rh;
+    if (rw > rh) {
+      x = x * (rw / rh) + (rh - rw) / rh / 2.0;
     } else {
-      y = y * (h / w) + (w - h) / w / 2.0;
+      y = y * (rh / rw) + (rw - rh) / rw / 2.0;
     }
     x = -(x - 0.5) + 0.5;
     y = (y - 0.5) + 0.5;
@@ -413,7 +385,6 @@ class WaitingRoom {
   _animate() {
     if (!this.active) return;
     requestAnimationFrame(() => this._animate());
-
     const time = performance.now() * 0.001;
     const dt = time - this.lastTime;
     this.lastTime = time;
@@ -436,22 +407,19 @@ class WaitingRoom {
     }
 
     this._drawPhotos();
+    this.photoTexture.needsUpdate = true;
 
     // Update uniforms
-    this.photoTexture.needsUpdate = true;
     this.material.uniforms.u_holdProgress.value = holdProgress;
-    this.material.uniforms.u_hasHover.value = this.hoveredUser ? 1.0 : 0.0;
     this.material.uniforms.u_time.value = time;
     this.material.uniforms.u_count.value = this.users.length;
 
-    // Update avatar positions in shader coordinate space
     const positions = this.material.uniforms.u_positions.value;
     const radii = this.material.uniforms.u_radii.value;
     for (let i = 0; i < MAX_USERS; i++) {
       if (i < this.users.length) {
         const [sx, sy] = this._toShaderCoord(this.users[i].x, this.users[i].y);
         positions[i].set(sx, sy);
-        // Convert pixel radius to shader space (approximate)
         radii[i] = (this.users[i].radius / this.w) * 2.0;
       } else {
         positions[i].set(-10, -10);
@@ -459,7 +427,6 @@ class WaitingRoom {
       }
     }
 
-    // Hover name
     const el = document.getElementById('hover-name');
     if (el) {
       if (this.hoveredUser) {
@@ -475,9 +442,8 @@ class WaitingRoom {
 
   destroy() {
     this.active = false;
-    if (this.renderer?.domElement?.parentNode) {
+    if (this.renderer?.domElement?.parentNode)
       this.renderer.domElement.parentNode.removeChild(this.renderer.domElement);
-    }
     this.renderer.dispose();
   }
 }
