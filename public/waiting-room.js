@@ -84,6 +84,15 @@ void main() {
 }
 `;
 
+const ICON_NAMES = [
+  'sun-dim','sparkle','robot','rainbow','rabbit','popcorn','popsicle',
+  'potted-plant','plant','planet','piggy-bank','orange','ice-cream',
+  'heart','android-logo','acorn','alien','bone','bird','carrot',
+  'cherries','cheese','clover','coffee','cookie','cow','cube',
+  'detective','dog','eyes','fire-simple','fish-simple','flower-lotus',
+  'flower','flying-saucer','flower-tulip','tree'
+];
+
 class WaitingRoom {
   constructor(container) {
     this.container = container;
@@ -99,9 +108,23 @@ class WaitingRoom {
     this.mouseY = 0;
     this.mouseDampX = 0;
     this.mouseDampY = 0;
+    this.icons = {}; // loaded icon images
 
+    this._loadIcons();
     this._initThree();
     this._initEvents();
+  }
+
+  _loadIcons() {
+    for (const name of ICON_NAMES) {
+      const img = new Image();
+      img.src = '/icons/' + name + '.svg';
+      this.icons[name] = img;
+    }
+  }
+
+  _randomIcon() {
+    return ICON_NAMES[Math.floor(Math.random() * ICON_NAMES.length)];
   }
 
   _initThree() {
@@ -197,31 +220,17 @@ class WaitingRoom {
       if (u.id === myId) continue;
       let existing = this.users.find(eu => eu.id === u.id);
       if (!existing) {
-        const pad = 200;
+        const pad = 120;
         const newUser = {
-          id: u.id, name: u.name, photo: u.photo,
+          id: u.id, name: u.name,
           x: pad + Math.random() * (this.w - pad * 2),
           y: pad + Math.random() * (this.h - pad * 2),
-          vx: (Math.random() - 0.5) * 0.2,
-          vy: (Math.random() - 0.5) * 0.2,
-          img: null, radius: 75
+          icon: this._randomIcon(),
+          radius: 75
         };
-        if (u.photo) {
-          const img = new Image();
-          img.crossOrigin = 'anonymous';
-          img.onload = () => { newUser.img = img; };
-          img.src = u.photo;
-        }
         this.users.push(newUser);
       } else {
         existing.name = u.name;
-        if (u.photo && u.photo !== existing.photo) {
-          existing.photo = u.photo;
-          const img = new Image();
-          img.crossOrigin = 'anonymous';
-          img.onload = () => { existing.img = img; };
-          img.src = u.photo;
-        }
       }
     }
   }
@@ -251,25 +260,14 @@ class WaitingRoom {
       u.x = u.originX + Math.sin(t * 0.5 + u.phase) * 8;
       u.y = u.originY + Math.cos(t * 0.3 + u.phase * 1.3) * 6;
 
-      // Draw photo bigger than SDF radius so edge expansion reveals more
-      const r = u.radius + 50;
-      ctx.save();
-      ctx.beginPath();
-      ctx.arc(u.x, u.y, r, 0, Math.PI * 2);
-      ctx.clip();
-      if (u.img) {
-        ctx.drawImage(u.img, u.x - r, u.y - r, r * 2, r * 2);
-      } else {
-        ctx.fillStyle = '#333';
-        ctx.fill();
-        ctx.fillStyle = '#aaa';
-        ctx.font = '28px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(u.name[0] || '?', u.x, u.y);
+      // Draw icon inside circle area
+      const iconImg = this.icons[u.icon];
+      if (iconImg && iconImg.complete) {
+        const iconSize = u.radius * 1.2;
+        ctx.drawImage(iconImg, u.x - iconSize / 2, u.y - iconSize / 2, iconSize, iconSize);
       }
-      ctx.restore();
 
+      // Name below
       ctx.fillStyle = '#888';
       ctx.font = '13px "Helvetica Neue", sans-serif';
       ctx.textAlign = 'center';
