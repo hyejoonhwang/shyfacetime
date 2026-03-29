@@ -89,12 +89,18 @@ io.on('connection', (socket) => {
   });
 
   socket.on('signal', (to, from, data) => {
+    console.log('p5lm signal:', from, '->', to);
     const room = socket.p5lmRoom;
     if (room && io.p5lmRooms && io.p5lmRooms[room]) {
       const target = io.p5lmRooms[room].find(s => s.id === to);
       if (target) {
+        console.log('p5lm signal relayed to', to);
         target.emit('signal', to, from, data);
+      } else {
+        console.log('p5lm signal target NOT FOUND:', to, 'room has:', io.p5lmRooms[room].map(s => s.id));
       }
+    } else {
+      console.log('p5lm signal: no room for socket', socket.id, 'room:', room);
     }
   });
 
