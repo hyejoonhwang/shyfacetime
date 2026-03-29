@@ -10,6 +10,7 @@ varying vec2 v_uv;
 uniform sampler2D u_photos;
 uniform vec2 u_mouse;       // mouse in UV space (0-1)
 uniform vec2 u_aspect;      // (1, height/width) for aspect correction
+uniform vec2 u_resolution;  // canvas resolution in pixels
 uniform vec2 u_positions[${MAX_USERS}]; // avatar centers in UV space
 uniform float u_radii[${MAX_USERS}];    // avatar radii in UV space
 uniform int u_count;
@@ -34,12 +35,26 @@ float stroke(float x, float size, float w, float edge) {
     return clamp(d, 0.0, 1.0);
 }
 
+// Blur the texture around a point
+vec4 blurSample(sampler2D tex, vec2 uv, vec2 res, float amount) {
+    if (amount < 0.001) return texture2D(tex, uv);
+    vec4 sum = vec4(0.0);
+    float total = 0.0;
+    vec2 pixel = 1.0 / res;
+    for (float x = -3.0; x <= 3.0; x += 1.0) {
+        for (float y = -3.0; y <= 3.0; y += 1.0) {
+            float w = exp(-0.5 * (x*x + y*y) / 4.0);
+            sum += texture2D(tex, uv + vec2(x, y) * pixel * amount) * w;
+            total += w;
+        }
+    }
+    return sum / total;
+}
+
 void main() {
     vec2 uv = v_uv;
-    vec4 photoColor = texture2D(u_photos, uv);
-
-    // Mouse distance in aspect-corrected space
     vec2 mouse = u_mouse;
+    vec2 res = u_resolution;
 
     vec3 color = vec3(0.04);
 
@@ -57,6 +72,10 @@ void main() {
 
         float lens = smoothstep(radius * 0.8, 0.0, mouseDist);
 
+        // Sample icon with blur based on lens proximity
+        float blurAmount = lens * 6.0;
+        vec4 iconColor = blurSample(u_photos, uv, u_aspect * 1000.0, blurAmount);
+
         // Fill: the avatar circle, slight default soft edge
         float baseSoft = 0.003;
         float avatarFill = fill(dist, radius, baseSoft + lens * radius * 0.4);
@@ -65,8 +84,8 @@ void main() {
         float strokeEdge = 0.002 + lens * radius * 0.3;
         float avatarStroke = stroke(dist, radius, 0.003, strokeEdge) * 2.0;
 
-        // Apply photo inside circle
-        color = mix(color, photoColor.rgb, avatarFill);
+        // Apply icon inside circle (with blur)
+        color = mix(color, iconColor.rgb, avatarFill);
 
         // Stroke on top (white outline that expands near mouse)
         color = mix(color, vec3(1.0), avatarStroke * 0.6);
@@ -162,6 +181,7 @@ class WaitingRoom {
         u_photos: { value: this.photoTexture },
         u_mouse: { value: new THREE.Vector2(0, 0) },
         u_aspect: { value: new THREE.Vector2(1, this.h / this.w) },
+        u_resolution: { value: new THREE.Vector2(this.w * this.dpr, this.h * this.dpr) },
         u_positions: { value: posArray },
         u_radii: { value: radArray },
         u_count: { value: 0 }
@@ -183,6 +203,7 @@ class WaitingRoom {
     this.photoCanvas.width = this.w * this.dpr;
     this.photoCanvas.height = this.h * this.dpr;
     this.material.uniforms.u_aspect.value.set(1, this.h / this.w);
+    this.material.uniforms.u_resolution.value.set(this.w * this.dpr, this.h * this.dpr);
   }
 
   _initEvents() {
@@ -260,11 +281,11 @@ class WaitingRoom {
       u.x = u.originX + Math.sin(t * 0.5 + u.phase) * 8;
       u.y = u.originY + Math.cos(t * 0.3 + u.phase * 1.3) * 6;
 
-      // Draw icon — fill the full area so the SDF shader controls the edge blur
+      // Draw icon fitted inside the circle
       const iconImg = this.icons[u.icon];
       if (iconImg && iconImg.complete) {
-        const drawR = u.radius + 50; // larger than SDF radius so blur edge has content
-        ctx.drawImage(iconImg, u.x - drawR, u.y - drawR, drawR * 2, drawR * 2);
+        const iconSize = u.radius * 1.2;
+        ctx.drawImage(iconImg, u.x - iconSize / 2, u.y - iconSize / 2, iconSize, iconSize);
       }
 
       // Name below
