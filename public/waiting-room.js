@@ -264,14 +264,14 @@ class WaitingRoom {
       if (u.id === myId) continue;
       let existing = this.users.find(eu => eu.id === u.id);
       if (!existing) {
-        const pad = 120;
+        const pad = 220;
         const newUser = {
           id: u.id, name: u.name, photo: u.photo,
           x: pad + Math.random() * (this.w - pad * 2),
           y: pad + Math.random() * (this.h - pad * 2),
-          vx: (Math.random() - 0.5) * 0.3,
-          vy: (Math.random() - 0.5) * 0.3,
-          img: null, radius: 50
+          vx: (Math.random() - 0.5) * 0.2,
+          vy: (Math.random() - 0.5) * 0.2,
+          img: null, radius: 180
         };
         if (u.photo) {
           const img = new Image();
@@ -322,11 +322,11 @@ class WaitingRoom {
       // Draw photo (larger than SDF radius so stroke expansion reveals it)
       ctx.save();
       ctx.beginPath();
-      ctx.arc(u.x, u.y, u.radius + 40, 0, Math.PI * 2);
+      ctx.arc(u.x, u.y, u.radius + 60, 0, Math.PI * 2);
       ctx.closePath();
       ctx.clip();
       if (u.img) {
-        const r = u.radius + 40;
+        const r = u.radius + 60;
         ctx.drawImage(u.img, u.x - r, u.y - r, r * 2, r * 2);
       } else {
         ctx.fillStyle = '#333';
@@ -343,7 +343,7 @@ class WaitingRoom {
       ctx.fillStyle = '#888';
       ctx.font = '12px "Helvetica Neue", sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText(u.name, u.x, u.y + u.radius + 22);
+      ctx.fillText(u.name, u.x, u.y + u.radius + 30);
     }
     ctx.restore();
   }
