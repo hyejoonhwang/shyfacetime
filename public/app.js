@@ -24,7 +24,7 @@ const googleSigninBtn = document.getElementById('google-signin-btn');
 const signoutBtn = document.getElementById('signout-btn');
 const myPhoto = document.getElementById('my-photo');
 const myNameEl = document.getElementById('my-name');
-const waitingEmpty = document.getElementById('waiting-empty');
+// waitingEmpty handled in waiting-list handler
 const hangupBtn = document.getElementById('hangup-btn');
 const muteBtn = document.getElementById('mute-btn');
 const speakerBtn = document.getElementById('speaker-btn');
@@ -101,49 +101,39 @@ socket.on('connect', () => {
 // 2. WAITING ROOM
 // ============================================================
 
+let waitingRoom = null;
+
 socket.on('waiting-list', (list) => {
   userListCache = list;
-  renderUserGrid(list);
-});
-
-function renderUserGrid(list) {
   const others = list.filter(u => u.id !== mySocketId);
-  const userGrid = document.getElementById('user-grid');
-  const waitingEmpty = document.getElementById('waiting-empty');
-  userGrid.innerHTML = '';
 
-  if (others.length === 0) {
-    waitingEmpty.style.display = 'block';
-    return;
+  // Show/hide empty state
+  const emptyEl = document.getElementById('waiting-empty');
+  if (emptyEl) emptyEl.style.display = others.length === 0 ? 'flex' : 'none';
+
+  // Init Three.js waiting room
+  if (!waitingRoom) {
+    const container = document.getElementById('waiting-room-canvas');
+    if (container) {
+      waitingRoom = new WaitingRoom(container);
+      waitingRoom.onCallRequest = (targetId) => {
+        const target = userListCache.find(u => u.id === targetId);
+        connectMyPhoto.src = myPhoto_url;
+        connectMyName.textContent = myName;
+        connectTheirPhoto.src = target ? target.photo : '';
+        connectTheirName.textContent = target ? target.name : 'Someone';
+        connectingTitle.textContent = 'calling...';
+        connectingActions.classList.add('hidden');
+        connectingStatus.classList.remove('hidden');
+        connectingStatus.textContent = 'waiting for them to accept...';
+        showScreen(connectingScreen);
+        socket.emit('call-request', targetId);
+      };
+      waitingRoom.start();
+    }
   }
-  waitingEmpty.style.display = 'none';
-
-  others.forEach(user => {
-    const card = document.createElement('div');
-    card.className = 'user-card';
-    card.innerHTML = `
-      <img src="${escapeAttr(user.photo)}" alt="" class="avatar-md">
-      <span class="user-name">${escapeHtml(user.name)}</span>
-      <span class="user-status">online</span>
-      <button class="btn btn-primary btn-sm" onclick="requestCall('${user.id}')">call</button>
-    `;
-    userGrid.appendChild(card);
-  });
-}
-
-window.requestCall = function(targetId) {
-  const target = userListCache.find(u => u.id === targetId);
-  connectMyPhoto.src = myPhoto_url;
-  connectMyName.textContent = myName;
-  connectTheirPhoto.src = target ? target.photo : '';
-  connectTheirName.textContent = target ? target.name : 'Someone';
-  connectingTitle.textContent = 'calling...';
-  connectingActions.classList.add('hidden');
-  connectingStatus.classList.remove('hidden');
-  connectingStatus.textContent = 'waiting for them to accept...';
-  showScreen(connectingScreen);
-  socket.emit('call-request', targetId);
-};
+  if (waitingRoom) waitingRoom.updateUsers(list, mySocketId);
+});
 
 // --- Incoming call → show connecting screen as responder ---
 socket.on('incoming-call', (data) => {
@@ -184,6 +174,7 @@ socket.on('call-started', async (data) => {
   partnerId = data.partnerId;
   const roomName = data.room;
   console.log('Call started, joining room:', roomName);
+  if (waitingRoom) waitingRoom.stop();
   showScreen(callScreen);
 
   try {
@@ -237,6 +228,7 @@ speakerBtn.addEventListener('click', () => {
 socket.on('partner-hung-up', () => {
   cleanUpCall();
   showScreen(waitingScreen);
+  if (waitingRoom) waitingRoom.start();
   socket.emit('join', { name: myName, photo: myPhoto_url });
 });
 
@@ -244,6 +236,7 @@ function hangUp() {
   socket.emit('hang-up');
   cleanUpCall();
   showScreen(waitingScreen);
+  if (waitingRoom) waitingRoom.start();
   socket.emit('join', { name: myName, photo: myPhoto_url });
 }
 

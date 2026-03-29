@@ -1,5 +1,6 @@
 // ============================================================
-// Waiting Room — SDF lens blur on avatar circles
+// Waiting Room — Cards rendered on Three.js canvas with SDF blur
+// SDF shader from https://github.com/guilanier/codrops-sdf-lensblur
 // ============================================================
 
 const MAX_USERS = 20;
@@ -8,14 +9,13 @@ const FRAGMENT_SHADER = `
 precision highp float;
 varying vec2 v_uv;
 uniform sampler2D u_photos;
-uniform vec2 u_mouse;       // mouse in UV space (0-1)
-uniform vec2 u_aspect;      // (1, height/width) for aspect correction
-uniform vec2 u_resolution;  // canvas resolution in pixels
-uniform vec2 u_positions[${MAX_USERS}]; // avatar centers in UV space
-uniform float u_radii[${MAX_USERS}];    // avatar radii in UV space
+uniform vec2 u_mouse;
+uniform vec2 u_aspect;
+uniform vec2 u_resolution;
+uniform vec2 u_positions[${MAX_USERS}];
+uniform float u_radii[${MAX_USERS}];
 uniform int u_count;
 
-/* SDF + drawing functions from codrops */
 float sdCircle(vec2 st, vec2 center) {
     return length(st - center);
 }
@@ -35,7 +35,7 @@ float stroke(float x, float size, float w, float edge) {
     return clamp(d, 0.0, 1.0);
 }
 
-// Blur the texture around a point
+// Blur sampling
 vec4 blurSample(sampler2D tex, vec2 uv, vec2 res, float amount) {
     if (amount < 0.001) return texture2D(tex, uv);
     vec4 sum = vec4(0.0);
@@ -54,26 +54,46 @@ vec4 blurSample(sampler2D tex, vec2 uv, vec2 res, float amount) {
 void main() {
     vec2 uv = v_uv;
     vec2 mouse = u_mouse;
-    vec2 res = u_resolution;
-
-    // Sample texture (names drawn on canvas)
     vec4 texColor = texture2D(u_photos, uv);
 
-    // Mouse proximity blur
-    float mouseDist = length((uv - mouse) * u_aspect);
-    float lens = smoothstep(0.08, 0.0, mouseDist);
-    float blurAmount = lens * 8.0;
-    vec4 blurred = blurSample(u_photos, uv, res, blurAmount);
+    vec3 color = vec3(0.0);
+    float alpha = 0.0;
 
-    // Blend: text blurs near mouse, blurred part is white
-    vec4 finalColor = texColor;
-    if (lens > 0.001) {
-      // Blur the text, expansion area same color as text
-      finalColor.rgb = texColor.rgb;
-      finalColor.a = mix(texColor.a, blurred.a, lens);
+    for (int i = 0; i < ${MAX_USERS}; i++) {
+        if (i >= u_count) break;
+
+        vec2 center = u_positions[i];
+        float radius = u_radii[i];
+
+        float dist = length((uv - center) * u_aspect);
+        float mouseDist = length((uv - mouse) * u_aspect);
+
+        // SDF lens: smooth falloff from mouse point
+        float lens = smoothstep(radius * 0.8, 0.0, mouseDist);
+
+        // Card fill with slight default softness
+        float baseSoft = 0.003;
+        float cardFill = fill(dist, radius, baseSoft + lens * radius * 0.4);
+
+        // Stroke: edge expands with lens (the SDF blur distort)
+        float strokeEdge = 0.002 + lens * radius * 0.3;
+        float cardStroke = stroke(dist, radius, 0.003, strokeEdge) * 2.0;
+
+        // Blur the texture near cursor
+        float blurAmt = lens * 6.0;
+        vec4 blurred = blurSample(u_photos, uv, u_resolution, blurAmt);
+        vec4 cardColor = mix(texColor, blurred, lens);
+
+        // Apply card content
+        color = mix(color, cardColor.rgb, cardFill);
+        alpha = max(alpha, cardFill);
+
+        // White stroke (expanding edge)
+        color = mix(color, vec3(1.0), cardStroke * 0.6);
+        alpha = max(alpha, cardStroke * 0.6);
     }
 
-    gl_FragColor = finalColor;
+    gl_FragColor = vec4(color, alpha);
 }
 `;
 
@@ -84,15 +104,6 @@ void main() {
     gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
 }
 `;
-
-const ICON_NAMES = [
-  'sun-dim','sparkle','robot','rainbow','rabbit','popcorn','popsicle',
-  'potted-plant','plant','planet','piggy-bank','orange','ice-cream',
-  'heart','android-logo','acorn','alien','bone','bird','carrot',
-  'cherries','cheese','clover','coffee','cookie','cow','cube',
-  'detective','dog','eyes','fire-simple','fish-simple','flower-lotus',
-  'flower','flying-saucer','flower-tulip','tree'
-];
 
 class WaitingRoom {
   constructor(container) {
@@ -109,23 +120,9 @@ class WaitingRoom {
     this.mouseY = 0;
     this.mouseDampX = 0;
     this.mouseDampY = 0;
-    this.icons = {}; // loaded icon images
 
-    this._loadIcons();
     this._initThree();
     this._initEvents();
-  }
-
-  _loadIcons() {
-    for (const name of ICON_NAMES) {
-      const img = new Image();
-      img.src = '/icons/' + name + '.svg';
-      this.icons[name] = img;
-    }
-  }
-
-  _randomIcon() {
-    return ICON_NAMES[Math.floor(Math.random() * ICON_NAMES.length)];
   }
 
   _initThree() {
@@ -133,6 +130,7 @@ class WaitingRoom {
     this.h = window.innerHeight;
     this.dpr = Math.min(window.devicePixelRatio, 2);
 
+    // Offscreen canvas for drawing card content
     this.photoCanvas = document.createElement('canvas');
     this.photoCanvas.width = this.w * this.dpr;
     this.photoCanvas.height = this.h * this.dpr;
@@ -202,6 +200,10 @@ class WaitingRoom {
         this.holding = true;
         this.holdStart = Date.now();
         this.holdTarget = this.hoveredUser;
+        // Trigger call request immediately on click
+        if (this.onCallRequest) this.onCallRequest(this.holdTarget.id);
+        this.holding = false;
+        this.holdTarget = null;
       }
     };
     const onUp = () => { this.holding = false; this.holdStart = 0; this.holdTarget = null; };
@@ -224,53 +226,145 @@ class WaitingRoom {
       if (u.id === myId) continue;
       let existing = this.users.find(eu => eu.id === u.id);
       if (!existing) {
-        const pad = 120;
         const newUser = {
-          id: u.id, name: u.name,
-          x: pad + Math.random() * (this.w - pad * 2),
-          y: pad + Math.random() * (this.h - pad * 2),
-          icon: this._randomIcon(),
-          radius: 40
+          id: u.id, name: u.name, photo: u.photo,
+          img: null, cardW: 200, cardH: 260, x: 0, y: 0
         };
+        if (u.photo) {
+          const img = new Image();
+          img.crossOrigin = 'anonymous';
+          img.onload = () => { newUser.img = img; };
+          img.src = u.photo;
+        }
         this.users.push(newUser);
+        this._layoutCards();
       } else {
         existing.name = u.name;
+        if (u.photo && u.photo !== existing.photo) {
+          existing.photo = u.photo;
+          const img = new Image();
+          img.crossOrigin = 'anonymous';
+          img.onload = () => { existing.img = img; };
+          img.src = u.photo;
+        }
       }
     }
+    this._layoutCards();
+  }
+
+  _layoutCards() {
+    // Grid layout centered on screen
+    const cols = Math.max(1, Math.min(4, Math.floor((this.w - 80) / 220)));
+    const gap = 20;
+    const cardW = 200;
+    const cardH = 260;
+    const totalW = cols * cardW + (cols - 1) * gap;
+    const startX = (this.w - totalW) / 2 + cardW / 2;
+    const startY = 40 + cardH / 2;
+
+    this.users.forEach((u, i) => {
+      const col = i % cols;
+      const row = Math.floor(i / cols);
+      u.cardW = cardW;
+      u.cardH = cardH;
+      u.x = startX + col * (cardW + gap);
+      u.y = startY + row * (cardH + gap);
+    });
   }
 
   _updateHover() {
     this.hoveredUser = null;
     for (const u of this.users) {
-      const dx = this.mouseX - u.x;
-      const dy = this.mouseY - u.y;
-      if (Math.sqrt(dx * dx + dy * dy) < u.radius + 40) {
+      const hw = u.cardW / 2 + 10;
+      const hh = u.cardH / 2 + 10;
+      if (Math.abs(this.mouseX - u.x) < hw && Math.abs(this.mouseY - u.y) < hh) {
         this.hoveredUser = u;
         break;
       }
     }
   }
 
-  _drawPhotos() {
+  _drawCards() {
     const ctx = this.photoCtx;
     const dpr = this.dpr;
     ctx.clearRect(0, 0, this.photoCanvas.width, this.photoCanvas.height);
     ctx.save();
     ctx.scale(dpr, dpr);
-    for (const u of this.users) {
-      // Gentle floating in place (small oscillation around origin)
-      if (!u.originX) { u.originX = u.x; u.originY = u.y; u.phase = Math.random() * Math.PI * 2; }
-      const t = performance.now() * 0.001;
-      u.x = u.originX + Math.sin(t * 0.5 + u.phase) * 8;
-      u.y = u.originY + Math.cos(t * 0.3 + u.phase * 1.3) * 6;
 
-      // Draw name text centered at the user position
-      ctx.fillStyle = '#333333';
-      ctx.font = '36px "Shizuru", sans-serif';
+    for (const u of this.users) {
+      const x = u.x - u.cardW / 2;
+      const y = u.y - u.cardH / 2;
+      const w = u.cardW;
+      const h = u.cardH;
+      const r = 32; // border radius matching design system
+
+      // Card background
+      ctx.beginPath();
+      ctx.roundRect(x, y, w, h, r);
+      ctx.fillStyle = '#F5F4F0';
+      ctx.fill();
+      ctx.strokeStyle = '#CFCDC5';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
+      // Avatar circle
+      const avatarR = 28;
+      const avatarY = y + 50;
+      if (u.img) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(u.x, avatarY, avatarR, 0, Math.PI * 2);
+        ctx.clip();
+        ctx.drawImage(u.img, u.x - avatarR, avatarY - avatarR, avatarR * 2, avatarR * 2);
+        ctx.restore();
+      } else {
+        ctx.beginPath();
+        ctx.arc(u.x, avatarY, avatarR, 0, Math.PI * 2);
+        ctx.fillStyle = '#CFCDC5';
+        ctx.fill();
+        ctx.fillStyle = '#999';
+        ctx.font = '600 20px Nunito, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(u.name[0] || '?', u.x, avatarY);
+      }
+
+      // Avatar border
+      ctx.beginPath();
+      ctx.arc(u.x, avatarY, avatarR, 0, Math.PI * 2);
+      ctx.strokeStyle = '#CFCDC5';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      // Name
+      ctx.fillStyle = '#000000';
+      ctx.font = '700 16px Nunito, sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(u.name, u.x, u.y);
+      ctx.fillText(u.name, u.x, avatarY + avatarR + 24);
+
+      // "online" status
+      ctx.fillStyle = '#999999';
+      ctx.font = '400 12px Nunito, sans-serif';
+      ctx.fillText('online', u.x, avatarY + avatarR + 44);
+
+      // "call" button
+      const btnW = 140;
+      const btnH = 36;
+      const btnX = u.x - btnW / 2;
+      const btnY = y + h - 56;
+      ctx.beginPath();
+      ctx.roundRect(btnX, btnY, btnW, btnH, 18);
+      ctx.fillStyle = '#7BA887';
+      ctx.fill();
+
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = '700 14px Nunito, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('call', u.x, btnY + btnH / 2);
     }
+
     ctx.restore();
   }
 
@@ -287,50 +381,32 @@ class WaitingRoom {
     this.mouseDampY += (this.mouseY - this.mouseDampY) * (1 - Math.exp(-8 * dt));
 
     this._updateHover();
-
-    if (this.holding && this.holdTarget) {
-      const progress = Math.min((Date.now() - this.holdStart) / 2000, 1.0);
-      if (progress >= 1.0) {
-        this.holding = false;
-        if (this.onCallRequest) this.onCallRequest(this.holdTarget.id);
-        this.holdStart = 0;
-        this.holdTarget = null;
-      }
-    }
-
-    this._drawPhotos();
+    this._drawCards();
     this.photoTexture.needsUpdate = true;
 
-    // Mouse in UV space (0-1, Y flipped for GL)
+    // Update uniforms
     this.material.uniforms.u_mouse.value.set(
       this.mouseDampX / this.w,
       1.0 - this.mouseDampY / this.h
     );
-
-    // Avatar positions in UV space
     this.material.uniforms.u_count.value = this.users.length;
+
     const positions = this.material.uniforms.u_positions.value;
     const radii = this.material.uniforms.u_radii.value;
     for (let i = 0; i < MAX_USERS; i++) {
       if (i < this.users.length) {
-        positions[i].set(
-          this.users[i].x / this.w,
-          1.0 - this.users[i].y / this.h
-        );
-        radii[i] = this.users[i].radius / this.w;
+        const u = this.users[i];
+        positions[i].set(u.x / this.w, 1.0 - u.y / this.h);
+        // Radius covers the card (use half-diagonal)
+        radii[i] = Math.sqrt(u.cardW * u.cardW + u.cardH * u.cardH) / 2 / this.w;
       } else {
         positions[i].set(-10, -10);
         radii[i] = 0;
       }
     }
 
-    const el = document.getElementById('hover-name');
-    if (el) {
-      if (this.hoveredUser) {
-        el.textContent = this.holding ? 'connecting...' : this.hoveredUser.name;
-        el.style.opacity = '1';
-      } else { el.style.opacity = '0'; }
-    }
+    // Cursor style
+    document.body.style.cursor = this.hoveredUser ? 'pointer' : 'default';
 
     this.renderer.render(this.scene, this.camera);
   }
