@@ -85,21 +85,18 @@ void main() {
     vec2 uv = v_texcoord;
     vec4 photoColor = texture2D(u_photos, uv);
 
-    /* Loop over avatar circles — using VAR==2 technique from codrops:
-       sdf circle with stroke param adjusted by sdf circle */
+    /* Loop over avatar circles — using VAR==1 technique from codrops:
+       sdf circle with fill edge adjusted by sdf circle.
+       The circle's own edge softens/expands near the mouse. */
     for (int i = 0; i < ${MAX_USERS}; i++) {
         if (i >= u_count) break;
 
         float sdf = sdCircle(st, u_positions[i]);
 
-        /* stroke with edge = sdfCircle — copied from codrops VAR==2 */
-        float avatarStroke = stroke(sdf, u_radii[i], 0.02, sdfCircle) * 4.0;
-
-        /* fill for photo content */
-        float avatarFill = fill(sdf, u_radii[i], 0.04);
+        /* fill with edge = sdfCircle — from codrops VAR==1 */
+        float avatarFill = fill(sdf, u_radii[i], sdfCircle) * 1.2;
 
         color = mix(color, photoColor.rgb, avatarFill);
-        color += vec3(1.0) * avatarStroke;
     }
 
     gl_FragColor = vec4(color, 1.0);
