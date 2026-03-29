@@ -37,12 +37,8 @@ body {
   width: 100vw;
   height: 100vh;
   z-index: 0;
-}
-
-#spline-bg spline-viewer {
-  width: 100vw;
-  height: 100vh;
-  display: block;
+  border: none;
+  pointer-events: none;
 }
 
 #login-content {

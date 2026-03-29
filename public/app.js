@@ -55,14 +55,6 @@ function showScreen(screen) {
   screen.classList.add('active');
 }
 
-// --- Spline background for login screen ---
-const splineBg = document.getElementById('spline-bg');
-if (splineBg) {
-  const viewer = document.createElement('spline-viewer');
-  viewer.setAttribute('url', 'https://prod.spline.design/toQavYMIC8C2Sf0I/scene.splinecode');
-  splineBg.appendChild(viewer);
-}
-
 // ============================================================
 // 1. FIREBASE AUTH
 // ============================================================
