@@ -1,5 +1,5 @@
 // ============================================================
-// ShyFaceTime — client
+// ShyFaceTime — client (p5LiveMedia version)
 // ============================================================
 
 // --- Firebase Auth ---
@@ -35,15 +35,15 @@ const hangupBtn = document.getElementById('hangup-btn');
 const gazeDebug = document.getElementById('gaze-debug');
 
 // --- State ---
-let currentUser = null; // Firebase user
+let currentUser = null;
 let myName = '';
 let myPhoto_url = '';
 let mySocketId = null;
 let partnerId = null;
 let pendingCallerId = null;
 let localStream = null;
-let remoteStream = null;
-let peerConnection = null;
+let p5lm = null;        // p5LiveMedia instance
+let remoteVideo = null;  // remote video element from p5LiveMedia
 let p5Instance = null;
 let faceMesh = null;
 let lookScore = 1;
@@ -68,18 +68,13 @@ signoutBtn.addEventListener('click', () => {
   auth.signOut();
 });
 
-// Listen for auth state changes
 auth.onAuthStateChanged((user) => {
   if (user) {
     currentUser = user;
     myName = user.displayName || 'Anonymous';
     myPhoto_url = user.photoURL || '';
-
-    // Update profile display
     myNameEl.textContent = myName;
     myPhoto.src = myPhoto_url;
-
-    // Join waiting room
     showScreen(waitingScreen);
     socket.emit('join', { name: myName, photo: myPhoto_url });
   } else {
@@ -90,7 +85,6 @@ auth.onAuthStateChanged((user) => {
   }
 });
 
-// Re-join waiting room on reconnect
 socket.on('connect', () => {
   mySocketId = socket.id;
   if (currentUser) {
@@ -123,7 +117,6 @@ window.requestCall = function (targetId) {
   socket.emit('call-request', targetId);
 };
 
-// --- Incoming call ---
 socket.on('incoming-call', (data) => {
   pendingCallerId = data.callerId;
   callerNameEl.textContent = data.callerName;
@@ -145,34 +138,16 @@ declineBtn.addEventListener('click', () => {
 socket.on('call-declined', () => {});
 
 // ============================================================
-// 3. CALL SETUP (WebRTC)
+// 3. CALL SETUP (p5LiveMedia)
 // ============================================================
-
-const rtcConfig = {
-  iceServers: [
-    { urls: 'stun:stun.l.google.com:19302' },
-    { urls: 'stun:stun1.l.google.com:19302' }
-  ]
-};
-
-let signalingQueue = [];
-let peerReady = false;
-
-function flushSignalingQueue() {
-  peerReady = true;
-  console.log('Peer ready, flushing', signalingQueue.length, 'queued messages');
-  while (signalingQueue.length > 0) {
-    const fn = signalingQueue.shift();
-    fn();
-  }
-}
 
 socket.on('call-started', async (data) => {
   partnerId = data.partnerId;
-  peerReady = false;
-  signalingQueue = [];
+  const roomName = data.room;
+  console.log('Call started, joining room:', roomName);
   showScreen(callScreen);
 
+  // Get local webcam
   try {
     localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
   } catch (err) {
@@ -181,90 +156,28 @@ socket.on('call-started', async (data) => {
     return;
   }
 
-  console.log('Local stream ready');
+  // Show local video preview
   const localVideo = document.getElementById('local-video');
   localVideo.srcObject = localStream;
 
+  // Start face tracking
   startFaceMesh(localStream);
 
-  peerConnection = new RTCPeerConnection(rtcConfig);
+  // Connect via p5LiveMedia
+  // p5LiveMedia expects a p5 sketch reference — we pass `window` as a shim
+  // since we're not using p5's createCapture
+  p5lm = new p5LiveMedia(window, "CAPTURE", localStream, roomName);
 
-  localStream.getTracks().forEach(track => {
-    peerConnection.addTrack(track, localStream);
+  p5lm.on('stream', (stream, id) => {
+    console.log('p5LiveMedia: got remote stream from', id);
+    remoteVideo = stream;
+    // stream is a p5.MediaElement — get the underlying HTML element
+    startP5(stream.elt || stream);
   });
 
-  peerConnection.ontrack = (event) => {
-    console.log('Remote track received');
-    remoteStream = event.streams[0];
-    startP5();
-  };
-
-  peerConnection.onicecandidate = (event) => {
-    if (event.candidate) {
-      socket.emit('webrtc-ice', { targetId: partnerId, candidate: event.candidate });
-    }
-  };
-
-  peerConnection.onconnectionstatechange = () => {
-    console.log('Connection state:', peerConnection.connectionState);
-  };
-
-  flushSignalingQueue();
-
-  if (mySocketId < partnerId) {
-    const offer = await peerConnection.createOffer();
-    await peerConnection.setLocalDescription(offer);
-    socket.emit('webrtc-offer', { targetId: partnerId, offer: offer });
-    console.log('Offer sent');
-  }
-});
-
-async function handleOffer(data) {
-  console.log('Handling offer');
-  await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
-  const answer = await peerConnection.createAnswer();
-  await peerConnection.setLocalDescription(answer);
-  socket.emit('webrtc-answer', { targetId: data.callerId, answer: answer });
-  console.log('Answer sent');
-}
-
-async function handleAnswer(data) {
-  console.log('Handling answer');
-  await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
-}
-
-async function handleIce(data) {
-  try {
-    await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
-  } catch (err) {
-    console.error('ICE error:', err);
-  }
-}
-
-socket.on('webrtc-offer', (data) => {
-  if (!peerReady) {
-    console.log('Offer queued (peer not ready)');
-    signalingQueue.push(() => handleOffer(data));
-    return;
-  }
-  handleOffer(data);
-});
-
-socket.on('webrtc-answer', (data) => {
-  if (!peerReady) {
-    console.log('Answer queued (peer not ready)');
-    signalingQueue.push(() => handleAnswer(data));
-    return;
-  }
-  handleAnswer(data);
-});
-
-socket.on('webrtc-ice', (data) => {
-  if (!peerReady) {
-    signalingQueue.push(() => handleIce(data));
-    return;
-  }
-  handleIce(data);
+  p5lm.on('disconnect', (id) => {
+    console.log('p5LiveMedia: peer disconnected', id);
+  });
 });
 
 // ============================================================
@@ -287,9 +200,9 @@ function hangUp() {
 }
 
 function cleanUpCall() {
-  if (peerConnection) {
-    peerConnection.close();
-    peerConnection = null;
+  if (p5lm) {
+    p5lm.disconnect(-1);
+    p5lm = null;
   }
   if (p5Instance) {
     p5Instance.remove();
@@ -305,12 +218,17 @@ function cleanUpCall() {
     cancelAnimationFrame(frameLoopId);
     frameLoopId = null;
   }
+  if (localStream) {
+    localStream.getTracks().forEach(t => t.stop());
+    localStream = null;
+  }
   trackCanvas = null;
   trackCtx = null;
-  document.querySelectorAll('video[style*="display: none"], audio').forEach(el => {
-    el.remove();
+  // Clean up off-screen video/audio elements
+  document.querySelectorAll('video[style*="-9999"], audio').forEach(el => {
+    if (el.id !== 'local-video') el.remove();
   });
-  remoteStream = null;
+  remoteVideo = null;
   partnerId = null;
   lookScore = 1;
 }
@@ -352,11 +270,8 @@ function startFaceMesh(stream) {
     if (localVid.readyState >= 2 && localVid.videoWidth > 0) {
       console.log('Local video ready:', localVid.videoWidth, 'x', localVid.videoHeight);
       gazeDebug.textContent = 'video ready, loading model...';
-
-      // Draw several frames first so canvas has data
       drawFrame();
 
-      // Small delay to ensure canvas has real frames before model starts
       setTimeout(() => {
         faceMesh = ml5.faceMesh({
           maxFaces: 1,
@@ -381,13 +296,12 @@ function startFaceMesh(stream) {
     console.log('Starting detectStart');
     faceMesh.detectStart(trackCanvas, onFaceResults);
 
-    // Watchdog: if no results for 3 seconds, restart detection
     clearInterval(watchdogId);
     watchdogId = setInterval(() => {
       if (!faceMeshReady) { clearInterval(watchdogId); return; }
       const elapsed = Date.now() - lastResultTime;
       if (elapsed > 3000) {
-        console.log('Watchdog: no results for 3s, restarting detection');
+        console.log('Watchdog: restarting detection');
         gazeDebug.textContent = 'restarting detection...';
         faceMesh.detectStop();
         setTimeout(() => {
@@ -456,7 +370,7 @@ function onFaceResults(results) {
 
     lookScore = irisScore * 0.6 + headScore * 0.4;
 
-    gazeDebug.textContent = `iris: ${irisScore.toFixed(2)} (L:${leftRatio.toFixed(2)} R:${rightRatio.toFixed(2)}) head: ${headScore.toFixed(2)} → look: ${lookScore.toFixed(2)}`;
+    gazeDebug.textContent = `iris: ${irisScore.toFixed(2)} head: ${headScore.toFixed(2)} → look: ${lookScore.toFixed(2)}`;
   } else {
     const noseTip = kp[1];
     const leftCheek = kp[234];
@@ -479,7 +393,7 @@ function onFaceResults(results) {
 
     lookScore = headScore * 0.7 + vertScore * 0.3;
 
-    gazeDebug.textContent = `(no iris) head: ${headScore.toFixed(2)} vert: ${vertScore.toFixed(2)} → look: ${lookScore.toFixed(2)} [${kp.length} kp]`;
+    gazeDebug.textContent = `(no iris) head: ${headScore.toFixed(2)} vert: ${vertScore.toFixed(2)} → look: ${lookScore.toFixed(2)}`;
   }
 }
 
@@ -487,11 +401,11 @@ function onFaceResults(results) {
 // 6. P5 CANVAS — the core experience
 // ============================================================
 
-function startP5() {
+function startP5(remoteVideoEl) {
   if (p5Instance) return;
 
   p5Instance = new p5((p) => {
-    let remoteVideo;
+    let vidEl; // the HTML video element for the remote stream
     let blurAmount = 40;
     let currentBlur = 40;
     let canvasW, canvasH;
@@ -505,19 +419,19 @@ function startP5() {
       canvas.parent('canvas-container');
       canvasEl = canvas.elt;
 
-      remoteVideo = document.createElement('video');
-      remoteVideo.srcObject = remoteStream;
-      remoteVideo.autoplay = true;
-      remoteVideo.playsInline = true;
-      remoteVideo.muted = true;
-      remoteVideo.style.position = 'fixed';
-      remoteVideo.style.left = '-9999px';
-      remoteVideo.style.top = '0';
-      document.body.appendChild(remoteVideo);
-      remoteVideo.play().catch(e => console.error('Video play error:', e));
+      // remoteVideoEl comes from p5LiveMedia — could be HTMLVideoElement or p5.MediaElement
+      vidEl = remoteVideoEl;
 
+      // Ensure it's playing
+      if (vidEl.play) {
+        vidEl.autoplay = true;
+        vidEl.playsInline = true;
+        vidEl.play().catch(e => console.error('Remote video play error:', e));
+      }
+
+      // Separate audio element for remote audio
       const audioEl = document.createElement('audio');
-      audioEl.srcObject = remoteStream;
+      audioEl.srcObject = vidEl.srcObject || vidEl.captureStream?.();
       audioEl.autoplay = true;
       document.body.appendChild(audioEl);
       audioEl.play().catch(e => console.error('Audio play error:', e));
@@ -528,7 +442,7 @@ function startP5() {
     p.draw = function () {
       p.background(10);
 
-      if (!remoteVideo || remoteVideo.readyState < 2) {
+      if (!vidEl || vidEl.readyState < 2) {
         p.fill(100);
         p.textAlign(p.CENTER, p.CENTER);
         p.textSize(16);
@@ -539,7 +453,7 @@ function startP5() {
       const targetBlur = lookScore * blurAmount;
       currentBlur = p.lerp(currentBlur, targetBlur, 0.12);
 
-      const videoRatio = remoteVideo.videoWidth / remoteVideo.videoHeight;
+      const videoRatio = vidEl.videoWidth / vidEl.videoHeight;
       const canvasRatio = canvasW / canvasH;
       let drawW, drawH, drawX, drawY;
       if (videoRatio > canvasRatio) {
@@ -554,10 +468,9 @@ function startP5() {
       const blurPx = Math.round(currentBlur);
 
       if (!isMobile) {
-        // Desktop: ctx.filter (per-pixel blur)
         canvasEl.style.filter = 'none';
         ctx.filter = blurPx > 0 ? `blur(${blurPx}px)` : 'none';
-        ctx.drawImage(remoteVideo, drawX, drawY, drawW, drawH);
+        ctx.drawImage(vidEl, drawX, drawY, drawW, drawH);
         ctx.filter = 'none';
 
         if (currentBlur > 5) {
@@ -567,8 +480,7 @@ function startP5() {
           p.rect(0, 0, canvasW, canvasH);
         }
       } else {
-        // Mobile: draw video, apply CSS blur to canvas element
-        ctx.drawImage(remoteVideo, drawX, drawY, drawW, drawH);
+        ctx.drawImage(vidEl, drawX, drawY, drawW, drawH);
         if (blurPx > 0) {
           canvasEl.style.filter = `blur(${blurPx}px) brightness(${p.map(currentBlur, 0, blurAmount, 1, 0.6)})`;
         } else {

@@ -1,12 +1,13 @@
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
+const crypto = require('crypto');
 
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
-// No caching for development — forces browser to always fetch fresh files
+// No caching for development
 app.use(express.static('public', {
   etag: false,
   lastModified: false,
@@ -16,8 +17,8 @@ app.use(express.static('public', {
   }
 }));
 
-// Track connected users waiting for a call
-const waitingUsers = new Map(); // socketId -> { name }
+// Track connected users
+const waitingUsers = new Map(); // socketId -> { name, photo }
 const activeCalls = new Map();  // socketId -> partnerSocketId
 
 io.on('connection', (socket) => {
@@ -55,9 +56,12 @@ io.on('connection', (socket) => {
     activeCalls.set(socket.id, callerId);
     activeCalls.set(callerId, socket.id);
 
-    // Tell the caller to start the WebRTC offer
-    caller.emit('call-started', { partnerId: socket.id });
-    socket.emit('call-started', { partnerId: callerId });
+    // Generate a unique room name for p5LiveMedia
+    const roomName = 'shy-' + crypto.randomBytes(8).toString('hex');
+
+    // Send room name to both users
+    caller.emit('call-started', { partnerId: socket.id, room: roomName });
+    socket.emit('call-started', { partnerId: callerId, room: roomName });
 
     broadcastWaitingList();
   });
@@ -66,24 +70,6 @@ io.on('connection', (socket) => {
   socket.on('call-decline', (callerId) => {
     const caller = io.sockets.sockets.get(callerId);
     if (caller) caller.emit('call-declined');
-  });
-
-  // WebRTC signaling: relay offer
-  socket.on('webrtc-offer', (data) => {
-    const partner = io.sockets.sockets.get(data.targetId);
-    if (partner) partner.emit('webrtc-offer', { offer: data.offer, callerId: socket.id });
-  });
-
-  // WebRTC signaling: relay answer
-  socket.on('webrtc-answer', (data) => {
-    const partner = io.sockets.sockets.get(data.targetId);
-    if (partner) partner.emit('webrtc-answer', { answer: data.answer });
-  });
-
-  // WebRTC signaling: relay ICE candidates
-  socket.on('webrtc-ice', (data) => {
-    const partner = io.sockets.sockets.get(data.targetId);
-    if (partner) partner.emit('webrtc-ice', { candidate: data.candidate });
   });
 
   // User hangs up
