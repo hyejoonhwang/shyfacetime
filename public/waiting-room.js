@@ -59,17 +59,23 @@ void main() {
     // Sample texture (names drawn on canvas)
     vec4 texColor = texture2D(u_photos, uv);
 
-    // Mouse proximity — blur the text outward in white
+    // Mouse proximity blur
     float mouseDist = length((uv - mouse) * u_aspect);
     float lens = smoothstep(0.08, 0.0, mouseDist);
     float blurAmount = lens * 8.0;
     vec4 blurred = blurSample(u_photos, uv, res, blurAmount);
 
-    // The blurred expansion should be white
+    // Blend: text blurs near mouse, blurred part is white
     vec4 finalColor = texColor;
-    float blurAlpha = blurred.a * lens;
-    finalColor.rgb = mix(finalColor.rgb, vec3(1.0), blurAlpha);
-    finalColor.a = max(finalColor.a, blurAlpha);
+    if (lens > 0.001) {
+      // Use blurred alpha to determine the expansion zone
+      float expansion = max(blurred.a - texColor.a, 0.0) * lens;
+      // Blur the original text
+      finalColor = mix(texColor, vec4(1.0, 1.0, 1.0, blurred.a), lens);
+      // Make the expanded area white
+      finalColor.rgb = vec3(1.0);
+      finalColor.a = mix(texColor.a, blurred.a, lens);
+    }
 
     gl_FragColor = finalColor;
 }
