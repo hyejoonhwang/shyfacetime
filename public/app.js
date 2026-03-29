@@ -318,6 +318,7 @@ function cleanUpCall() {
   if (lv) { lv.srcObject = null; lv.style.filter = ''; }
   remoteVideo = null; partnerId = null; partnerName = '';
   lookScore = 1; partnerLookScore = 1; isMuted = false;
+  faceEverDetected = false;
   muteBtn.style.background = ''; muteBtn.style.color = '';
 }
 
@@ -329,6 +330,7 @@ let trackCanvas = null;
 let trackCtx = null;
 let faceMeshReady = false;
 let noFaceCount = 0;
+let faceEverDetected = false;
 let frameLoopId = null;
 let lastResultTime = 0;
 let watchdogId = null;
@@ -403,11 +405,19 @@ function startFaceMesh(stream) {
 function onFaceResults(results) {
   lastResultTime = Date.now();
   if (!results || results.length === 0) {
-    noFaceCount++; lookScore = 1;
-    gazeDebug.textContent = `no face (${noFaceCount})`;
+    noFaceCount++;
+    // If face was detected before, "no face" means they looked away → clear
+    // If face was never detected, assume looking at screen → blur
+    if (faceEverDetected) {
+      lookScore = 0; // looked away
+    } else {
+      lookScore = 1; // still setting up
+    }
+    gazeDebug.textContent = `no face (${noFaceCount}) → ${lookScore}`;
     return;
   }
   noFaceCount = 0;
+  faceEverDetected = true;
   const kp = results[0].keypoints;
   if (kp.length > 468) {
     const lO=kp[33],lI=kp[133],lIr=kp[468],rI=kp[362],rO=kp[263],rIr=kp[473];
