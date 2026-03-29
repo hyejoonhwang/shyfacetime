@@ -465,6 +465,7 @@ body {
 
 #canvas-container canvas {
   display: block;
+  clip-path: inset(0);
 }
 
 #local-video {

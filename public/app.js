@@ -56,7 +56,7 @@ let p5Instance = null;
 let faceMesh = null;
 let lookScore = 1;
 let isMuted = false;
-let partnerLookScore = 1; // what the other person's gaze says about how they see me
+let partnerLookScore = 0; // what the other person's gaze says about how they see me
 let lastGazeSendTime = 0;
 
 // --- Helpers ---
