@@ -163,16 +163,30 @@ socket.on('call-started', async (data) => {
   // Start face tracking
   startFaceMesh(localStream);
 
-  // Connect via p5LiveMedia
-  // p5LiveMedia expects a p5 sketch reference — we pass `window` as a shim
-  // since we're not using p5's createCapture
-  p5lm = new p5LiveMedia(window, "CAPTURE", localStream, roomName);
+  // p5LiveMedia needs a sketch-like object with createVideo()
+  const sketchShim = {
+    createVideo: function(stream) {
+      const video = document.createElement('video');
+      video.srcObject = stream;
+      video.autoplay = true;
+      video.playsInline = true;
+      video.style.position = 'fixed';
+      video.style.left = '-9999px';
+      document.body.appendChild(video);
+      video.play().catch(e => console.error('Remote video play:', e));
+      // Return object with .elt like p5.MediaElement
+      return { elt: video };
+    }
+  };
+
+  p5lm = new p5LiveMedia(sketchShim, "CAPTURE", localStream, roomName);
 
   p5lm.on('stream', (stream, id) => {
     console.log('p5LiveMedia: got remote stream from', id);
-    remoteVideo = stream;
-    // stream is a p5.MediaElement — get the underlying HTML element
-    startP5(stream.elt || stream);
+    // stream is either { elt: HTMLVideoElement } or HTMLVideoElement
+    const videoEl = stream.elt || stream;
+    remoteVideo = videoEl;
+    startP5(videoEl);
   });
 
   p5lm.on('disconnect', (id) => {
