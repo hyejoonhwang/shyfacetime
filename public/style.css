@@ -9,7 +9,7 @@
    ============================================ */
 
 :root {
-  --bg-default: #F1EFE5;
+  --bg-default: #E8E5DA;
   --bg-secondary: #FFFFFF;
   --bg-tone: #E6E3D6;
   --bg-border: #DEDCD3;
@@ -72,6 +72,14 @@ body {
 .btn:hover {
   transform: scale(1.02);
   box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+  animation: btn-blur-distort 0.35s ease-out;
+}
+
+@keyframes btn-blur-distort {
+  0% { filter: blur(0px); }
+  25% { filter: blur(3px) brightness(1.15); transform: scale(1.05); }
+  50% { filter: blur(1.5px); transform: scale(1.03); }
+  100% { filter: blur(0px); transform: scale(1.02); }
 }
 
 .btn:active { transform: scale(0.98); }
@@ -126,6 +134,7 @@ body {
 .btn-round:hover {
   transform: scale(1.08);
   box-shadow: 0 4px 20px rgba(0,0,0,0.12);
+  animation: btn-blur-distort 0.35s ease-out;
 }
 
 .btn-round:active { transform: scale(0.95); }
@@ -172,7 +181,8 @@ body {
 #login-screen {
   position: relative;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
+  overflow-y: auto;
 }
 
 #spline-bg {
@@ -192,12 +202,8 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  max-width: 540px;
-  padding: 0 24px;
-  overflow-y: auto;
-  max-height: 100vh;
-  padding-top: 6vh;
-  padding-bottom: 4vh;
+  width: 100%;
+  padding: 6vh 32px 4vh;
 }
 
 #login-screen h1 {
@@ -331,6 +337,15 @@ body {
 .user-card:hover {
   transform: translateY(-4px);
   box-shadow: 0 8px 30px rgba(0,0,0,0.08);
+  animation: blur-distort 0.4s ease-out;
+}
+
+/* Blur distort hover animation */
+@keyframes blur-distort {
+  0% { filter: blur(0px); }
+  30% { filter: blur(4px) brightness(1.1); transform: translateY(-4px) scale(1.03); }
+  60% { filter: blur(2px); transform: translateY(-4px) scale(1.01); }
+  100% { filter: blur(0px); transform: translateY(-4px) scale(1); }
 }
 
 .user-card .user-name {
