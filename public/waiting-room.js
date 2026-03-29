@@ -57,18 +57,19 @@ void main() {
 
         float lens = smoothstep(radius * 0.8, 0.0, mouseDist);
 
-        // Fill: crisp edge, no blur expansion
-        float avatarFill = fill(dist, radius, 0.003);
+        // Fill: blurs outward with lens (like before)
+        float baseSoft = 0.003;
+        float avatarFill = fill(dist, radius, baseSoft + lens * radius * 0.4);
 
-        // Stroke: white, edge expands with lens (this is the blur expansion)
-        float strokeEdge = 0.002 + lens * radius * 0.5;
-        float avatarStroke = stroke(dist, radius, 0.003, strokeEdge) * 3.0;
+        // The expansion zone: pixels outside the crisp circle but inside the blurred fill
+        float crispFill = fill(dist, radius, 0.003);
+        float expansionZone = clamp(avatarFill - crispFill, 0.0, 1.0);
 
-        // Photo inside circle (crisp)
-        color = mix(color, photoColor.rgb, avatarFill);
+        // Photo inside the crisp part
+        color = mix(color, photoColor.rgb, crispFill);
 
-        // White expansion on top
-        color = mix(color, vec3(1.0), avatarStroke * 0.8);
+        // White in the expansion part (100% opaque white)
+        color = mix(color, vec3(1.0), expansionZone);
     }
 
     gl_FragColor = vec4(color, 1.0);
