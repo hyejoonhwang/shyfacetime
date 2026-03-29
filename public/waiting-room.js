@@ -61,17 +61,17 @@ void main() {
 
         // Fill: the avatar circle, slight default soft edge
         float baseSoft = 0.003;
-        float avatarFill = fill(dist, radius, baseSoft + lens * radius * 0.4);
+        float avatarFill = fill(dist, radius, baseSoft + lens * radius * 0.7);
 
         // Stroke: circle outline, edge expands with lens
-        float strokeEdge = 0.002 + lens * radius * 0.3;
-        float avatarStroke = stroke(dist, radius, 0.003, strokeEdge) * 2.0;
+        float strokeEdge = 0.002 + lens * radius * 0.6;
+        float avatarStroke = stroke(dist, radius, 0.004, strokeEdge) * 3.0;
 
         // Apply photo inside circle
         color = mix(color, photoColor.rgb, avatarFill);
 
-        // Stroke on top (white outline that expands near mouse)
-        color = mix(color, vec3(1.0), avatarStroke * 0.6);
+        // Stroke on top (white, stronger near mouse)
+        color = mix(color, vec3(1.0), avatarStroke * 0.9);
     }
 
     gl_FragColor = vec4(color, 1.0);
