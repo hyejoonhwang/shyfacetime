@@ -163,27 +163,15 @@ socket.on('call-started', async (data) => {
   // Start face tracking
   startFaceMesh(localStream);
 
-  // p5LiveMedia needs a sketch-like object with createVideo()
-  const sketchShim = {
-    createVideo: function(stream) {
-      console.log('sketchShim.createVideo called with stream:', stream);
-      const video = document.createElement('video');
-      video.srcObject = stream;
-      video.autoplay = true;
-      video.playsInline = true;
-      video.style.position = 'fixed';
-      video.style.left = '-9999px';
-      document.body.appendChild(video);
-      video.play().catch(e => console.error('Remote video play:', e));
-      return { elt: video };
-    }
-  };
+  // p5LiveMedia needs a real p5 instance (calls new p5.MediaElement, sketch._elements.push)
+  // Use the preloader p5 instance we captured earlier
+  if (!sketchInstance._elements) sketchInstance._elements = [];
 
   // Connect p5LiveMedia to OUR server (not the public one)
   // This avoids Socket.IO version mismatches
   const host = window.location.origin;
   console.log('Creating p5LiveMedia for room:', roomName, 'host:', host);
-  p5lm = new p5LiveMedia(sketchShim, "CAPTURE", localStream, roomName, host);
+  p5lm = new p5LiveMedia(sketchInstance, "CAPTURE", localStream, roomName, host);
 
   p5lm.on('stream', (stream, id) => {
     console.log('p5LiveMedia stream event! id:', id, 'stream:', stream);
@@ -268,7 +256,10 @@ let watchdogId = null;
 
 // Preload faceMesh using a minimal p5 instance (required because ml5 v1
 // integrates with p5's preload system when p5 is loaded)
+// Also used as the sketch reference for p5LiveMedia
+let sketchInstance = null;
 let faceMeshPreloader = new p5((p) => {
+  sketchInstance = p; // capture the real p5 instance
   p.preload = function () {
     console.log('Preloading faceMesh model...');
     faceMesh = ml5.faceMesh({ maxFaces: 1, refineLandmarks: true, flipped: false });
