@@ -128,11 +128,11 @@ class WaitingRoom {
           // Photo texture
           vec4 photoColor = texture2D(u_photos, uv);
 
-          // Mouse lens influence — smooth falloff from cursor point
-          float distToMouse = sdCircle(st, posMouse);
-          float lensInfluence = fill(distToMouse, 0.3, 0.5);
+          // Lens influence — TIGHT zone around cursor point
+          // Small size + edge so only the closest part of a shape edge is affected
+          float sdfLens = fill(sdCircle(st, posMouse), 0.04, 0.08);
 
-          // --- Render each avatar with codrops SDF lens blur ---
+          // --- Render each avatar (same structure as codrops) ---
           for (int i = 0; i < ${MAX_USERS}; i++) {
             if (i >= u_count) break;
 
@@ -140,23 +140,16 @@ class WaitingRoom {
             float aRad = u_radii[i];
             float sdf = sdCircle(st, aPos);
 
-            // Edge scaled to avatar size — prevents blob, keeps gooey tension
-            // lensInfluence (0-1) × small factor = subtle edge expansion
-            float edgeAmount = lensInfluence * aRad * 1.5;
-
-            // Stroke: edge controlled by mouse proximity
-            // Near mouse: edge expands → stroke gets wide and soft (gooey)
-            // Far: edge ≈ 0 → stroke is thin and crisp
+            // Exactly like codrops: stroke(sdf, size, borderSize, sdfLens)
+            // sdfLens IS the edge parameter — only pixels near the cursor
+            // get a large edge, so only that part of the circle expands
             float borderSize = 0.01;
-            float avatarStroke = stroke(sdf, aRad, borderSize, edgeAmount) * 4.0;
+            float avatarStroke = stroke(sdf, aRad, borderSize, sdfLens) * 4.0;
 
-            // Fill: slight default softness for the blurry-but-visible look
+            // Fill
             float avatarFill = fill(sdf, aRad, 0.04);
 
-            // Apply photo inside circle
             color = mix(color, photoColor.rgb, avatarFill);
-
-            // The stroke edge (white, expanding with gooey blur)
             color += vec3(1.0) * avatarStroke * 0.7;
           }
 
