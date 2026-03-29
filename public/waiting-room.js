@@ -270,7 +270,7 @@ class WaitingRoom {
 
       // Draw name text centered at the user position
       ctx.fillStyle = '#ffffff';
-      ctx.font = '600 24px "Helvetica Neue", Arial, sans-serif';
+      ctx.font = '36px "Shizuru", sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText(u.name, u.x, u.y);

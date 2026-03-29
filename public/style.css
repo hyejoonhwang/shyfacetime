@@ -1,3 +1,10 @@
+@font-face {
+  font-family: 'Shizuru';
+  src: url('/fonts/Shizuru-Regular.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+}
+
 * {
   margin: 0;
   padding: 0;
