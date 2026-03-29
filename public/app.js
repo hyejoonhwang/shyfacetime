@@ -221,7 +221,7 @@ socket.on('partner-gaze-score', (score) => {
 
 // Smooth partner blur with requestAnimationFrame
 function updatePartnerBlur() {
-  partnerBlurSmoothed += (partnerLookTarget * 40 - partnerBlurSmoothed) * 0.1;
+  partnerBlurSmoothed += (partnerLookTarget * 40 - partnerBlurSmoothed) * 0.04;
   const localVid = document.getElementById('local-video');
   if (localVid) {
     const pBlur = Math.round(partnerBlurSmoothed);
@@ -463,12 +463,10 @@ function startP5(remoteVideoEl) {
       document.body.appendChild(audioEl);
       audioEl.play().catch(() => {});
 
-      // Detect ctx.filter support
-      const testC = document.createElement('canvas');
-      const testCtx = testC.getContext('2d');
-      testCtx.filter = 'blur(1px)';
-      ctxFilterWorks = (testCtx.filter === 'blur(1px)');
-      console.log('ctx.filter supported:', ctxFilterWorks);
+      // Mobile browsers claim ctx.filter support but don't actually render it
+      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+      ctxFilterWorks = !isMobile;
+      console.log('Using ctx.filter:', ctxFilterWorks, 'mobile:', isMobile);
     };
 
     p.draw = function () {
@@ -484,10 +482,10 @@ function startP5(remoteVideoEl) {
       const targetBlur = lookScore * blurAmount;
       currentBlur = p.lerp(currentBlur, targetBlur, 0.12);
 
-      // Send gaze to partner
+      // Send the SMOOTHED blur ratio to partner (matches what they actually see)
       const now = Date.now();
       if (now - lastGazeSendTime > 100) {
-        socket.emit('gaze-score', lookScore);
+        socket.emit('gaze-score', currentBlur / blurAmount);
         lastGazeSendTime = now;
       }
 
