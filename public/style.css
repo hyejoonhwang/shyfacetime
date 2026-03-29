@@ -494,8 +494,7 @@ body {
   display: flex;
   align-items: center;
   gap: 20px;
-  background: rgba(255,255,255,0.1);
-  backdrop-filter: blur(20px);
+  background: rgba(30,30,30,0.8);
   padding: 12px 24px;
   border-radius: 40px;
 }

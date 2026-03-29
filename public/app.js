@@ -403,6 +403,8 @@ function startP5(remoteVideoEl) {
   p5Instance = new p5((p) => {
     let vidEl, blurAmount = 40, currentBlur = 40, canvasW, canvasH, canvasEl, isMobileDevice;
 
+    let blurCanvas, blurCtx; // offscreen canvas for mobile blur
+
     p.setup = function () {
       canvasW = window.innerWidth; canvasH = window.innerHeight;
       const canvas = p.createCanvas(canvasW, canvasH);
@@ -416,6 +418,18 @@ function startP5(remoteVideoEl) {
       document.body.appendChild(audioEl);
       audioEl.play().catch(() => {});
       isMobileDevice = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
+      // Test if ctx.filter actually works
+      const testC = document.createElement('canvas');
+      testC.width = 1; testC.height = 1;
+      const testCtx = testC.getContext('2d');
+      testCtx.filter = 'blur(1px)';
+      const ctxFilterWorks = (testCtx.filter === 'blur(1px)');
+
+      if (!ctxFilterWorks) {
+        blurCanvas = document.createElement('canvas');
+        blurCtx = blurCanvas.getContext('2d');
+      }
     };
 
     p.draw = function () {
@@ -446,11 +460,32 @@ function startP5(remoteVideoEl) {
       if (vr > cr) { dh = canvasH; dw = canvasH * vr; } else { dw = canvasW; dh = canvasW / vr; }
       dx = (canvasW - dw) / 2; dy = (canvasH - dh) / 2;
       const ctx = p.drawingContext, blur = Math.round(currentBlur);
-      canvasEl.style.filter = 'none'; // never use CSS filter — it bleeds
       ctx.save(); ctx.translate(canvasW, 0); ctx.scale(-1, 1);
-      ctx.filter = blur > 0 ? `blur(${blur}px)` : 'none';
-      ctx.drawImage(vidEl, dx, dy, dw, dh);
-      ctx.filter = 'none';
+
+      if (!blurCanvas) {
+        // Desktop: ctx.filter works — blur inside canvas pixels
+        ctx.filter = blur > 0 ? `blur(${blur}px)` : 'none';
+        ctx.drawImage(vidEl, dx, dy, dw, dh);
+        ctx.filter = 'none';
+      } else {
+        // Mobile fallback: downscale/upscale on offscreen canvas
+        if (blur > 2) {
+          const scale = p.map(currentBlur, 0, blurAmount, 1, 0.04);
+          const sw = Math.max(4, Math.round(dw * scale));
+          const sh = Math.max(4, Math.round(dh * scale));
+          blurCanvas.width = sw;
+          blurCanvas.height = sh;
+          blurCtx.imageSmoothingEnabled = true;
+          blurCtx.imageSmoothingQuality = 'medium';
+          blurCtx.drawImage(vidEl, 0, 0, sw, sh);
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = 'medium';
+          ctx.drawImage(blurCanvas, 0, 0, sw, sh, dx, dy, dw, dh);
+        } else {
+          ctx.drawImage(vidEl, dx, dy, dw, dh);
+        }
+      }
+
       ctx.restore();
       if (currentBlur > 5) {
         p.noStroke(); p.fill(10, 10, 10, p.map(currentBlur, 5, blurAmount, 0, 80));
