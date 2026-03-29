@@ -5,12 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ShyFaceTime</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@300;400;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
+  <script src="https://unpkg.com/lucide@latest"></script>
 </head>
 <body>
 
-  <!-- PAGE 1: Landing -->
+  <!-- PAGE 1: Landing (full page, no shell) -->
   <div id="login-screen" class="screen active">
     <iframe id="spline-bg" src="https://my.spline.design/dunes-dr8PJ3xiqnLmJtWkqcPBtZjF/" frameborder="0" width="100%" height="100%"></iframe>
     <div id="login-content">
@@ -31,82 +32,135 @@
         <p>they'll never be able to see you clearly. and you'll never see them clearly either.</p>
       </div>
 
-      <button id="google-signin-btn" class="btn btn-primary btn-lg">
-        <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="G" class="google-icon">
-        Enter with Google
+      <button id="google-signin-btn" class="btn btn-brand btn-lg">
+        <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="" class="google-icon">
+        enter with google
       </button>
     </div>
   </div>
 
-  <!-- PAGE 2: Waiting Room -->
-  <div id="waiting-screen" class="screen">
-    <div class="page-header">
-      <div class="header-left">
-        <h2>ShyFaceTime</h2>
+  <!-- APP SHELL (visible after auth) -->
+  <div id="app-shell" class="hidden">
+
+    <!-- Sidebar -->
+    <nav id="sidebar">
+      <div class="sidebar-top">
+        <div class="sidebar-logo">shy</div>
+        <a class="nav-item active" data-view="waiting" href="#">
+          <i data-lucide="home" class="nav-icon"></i>
+          <span class="nav-label">the room</span>
+        </a>
+        <a class="nav-item" data-view="echoes" href="#">
+          <i data-lucide="clock" class="nav-icon"></i>
+          <span class="nav-label">echoes</span>
+        </a>
+        <a class="nav-item" data-view="mirror" href="#">
+          <i data-lucide="settings" class="nav-icon"></i>
+          <span class="nav-label">the mirror</span>
+        </a>
       </div>
-      <div class="header-right">
-        <img id="my-photo" src="" alt="" class="avatar-sm">
-        <span id="my-name"></span>
+      <div class="sidebar-bottom">
+        <span id="sidebar-name" class="sidebar-user-name"></span>
         <button id="signout-btn" class="btn btn-ghost btn-sm">sign out</button>
       </div>
-    </div>
+    </nav>
 
-    <div id="waiting-body">
-      <div id="waiting-empty">
-        <p class="empty-icon">👀</p>
-        <p>no one else is here yet...</p>
-        <p class="empty-sub">share the link and wait for someone shy to show up</p>
+    <!-- Top Bar -->
+    <header id="topbar">
+      <span id="topbar-context">the room</span>
+      <span id="topbar-clock"></span>
+    </header>
+
+    <!-- Content Area -->
+    <main id="content">
+
+      <!-- VIEW: Waiting Room -->
+      <div id="view-waiting" class="view active">
+        <div id="waiting-empty">
+          <p class="empty-text-lg">it's quiet right now</p>
+          <p class="empty-text-sm">you have the room to yourself</p>
+        </div>
+        <div id="user-grid"></div>
       </div>
-      <div id="user-grid"></div>
-    </div>
-  </div>
 
-  <!-- PAGE 3: Connecting -->
-  <div id="connecting-screen" class="screen">
-    <div class="connecting-content">
-      <h2 id="connecting-title">connecting...</h2>
-      <div class="connecting-profiles">
-        <div class="connecting-user">
-          <img id="connect-my-photo" src="" alt="" class="avatar-lg">
-          <span id="connect-my-name"></span>
-        </div>
-        <div class="connecting-pulse">
-          <div class="pulse-ring"></div>
-          <div class="pulse-ring delay"></div>
-          <span class="pulse-icon">📞</span>
-        </div>
-        <div class="connecting-user">
-          <img id="connect-their-photo" src="" alt="" class="avatar-lg">
-          <span id="connect-their-name"></span>
+      <!-- VIEW: Echoes (placeholder) -->
+      <div id="view-echoes" class="view">
+        <div class="view-empty">
+          <p class="empty-text-lg">your echoes will appear here</p>
+          <p class="empty-text-sm">past connections and missed moments</p>
         </div>
       </div>
-      <div id="connecting-actions" class="hidden">
-        <button id="connect-accept-btn" class="btn btn-primary">accept</button>
-        <button id="connect-decline-btn" class="btn btn-danger">decline</button>
+
+      <!-- VIEW: Mirror (placeholder) -->
+      <div id="view-mirror" class="view">
+        <div class="view-empty">
+          <p class="empty-text-lg">the mirror</p>
+          <p class="empty-text-sm">check yourself before entering a call</p>
+        </div>
       </div>
-      <p id="connecting-status">waiting for them to accept...</p>
-    </div>
+
+      <!-- VIEW: Connecting -->
+      <div id="view-connecting" class="view">
+        <div class="connecting-content">
+          <h2 id="connecting-title">connecting...</h2>
+          <div class="connecting-profiles">
+            <div class="connecting-user">
+              <div class="connecting-name-circle">
+                <span id="connect-my-name">you</span>
+              </div>
+            </div>
+            <div class="connecting-pulse">
+              <div class="pulse-ring"></div>
+              <div class="pulse-ring delay"></div>
+              <span class="pulse-icon">
+                <i data-lucide="phone" class="pulse-phone-icon"></i>
+              </span>
+            </div>
+            <div class="connecting-user">
+              <div class="connecting-name-circle">
+                <span id="connect-their-name">them</span>
+              </div>
+            </div>
+          </div>
+          <div id="connecting-actions" class="hidden">
+            <button id="connect-accept-btn" class="btn btn-brand">accept</button>
+            <button id="connect-decline-btn" class="btn btn-danger">decline</button>
+          </div>
+          <p id="connecting-status">waiting for them to accept...</p>
+        </div>
+      </div>
+
+      <!-- VIEW: Call -->
+      <div id="view-call" class="view">
+        <div id="call-layout">
+          <div id="call-videos">
+            <div class="video-frame">
+              <div id="canvas-container"></div>
+              <span class="video-label" id="their-video-label">them</span>
+            </div>
+            <div class="video-frame">
+              <video id="local-video" autoplay muted playsinline></video>
+              <span class="video-label" id="my-video-label">you</span>
+            </div>
+          </div>
+          <div id="call-controls">
+            <button id="mute-btn" class="btn-control" title="mute">
+              <i data-lucide="mic" class="control-icon"></i>
+            </button>
+            <button id="hangup-btn" class="btn-control btn-control-danger" title="hang up">
+              <i data-lucide="phone-off" class="control-icon"></i>
+            </button>
+            <button id="speaker-btn" class="btn-control" title="speaker">
+              <i data-lucide="volume-2" class="control-icon"></i>
+            </button>
+          </div>
+        </div>
+        <div id="gaze-debug"></div>
+      </div>
+
+    </main>
   </div>
 
-  <!-- PAGE 4: Call -->
-  <div id="call-screen" class="screen">
-    <div id="canvas-container"></div>
-    <video id="local-video" autoplay muted playsinline></video>
-    <div id="call-controls">
-      <button id="mute-btn" class="btn-round" title="Mute">
-        <svg width="24" height="24" viewBox="0 0 256 256" fill="currentColor"><path d="M128,176a48.05,48.05,0,0,0,48-48V64a48,48,0,0,0-96,0v64A48.05,48.05,0,0,0,128,176ZM96,64a32,32,0,0,1,64,0v64a32,32,0,0,1-64,0Zm40,143.6V232a8,8,0,0,1-16,0V207.6A80.11,80.11,0,0,1,48,128a8,8,0,0,1,16,0,64,64,0,0,0,128,0,8,8,0,0,1,16,0A80.11,80.11,0,0,1,136,207.6Z"/></svg>
-      </button>
-      <button id="hangup-btn" class="btn-round btn-round-danger" title="Hang up">
-        <svg width="28" height="28" viewBox="0 0 256 256" fill="currentColor"><path d="M231.59,90.13C175.44,34,80.56,34,24.41,90.13a16,16,0,0,0,0,22.77l22.79,22.55a16.14,16.14,0,0,0,11.31,4.55,16,16,0,0,0,11.32-4.55L92.1,113.18A12,12,0,0,0,95.54,104l.23-19.26a119.77,119.77,0,0,1,64.46,0L160.46,104a12,12,0,0,0,3.44,9.18l22.27,22.27a16,16,0,0,0,22.63,0l22.79-22.55A16,16,0,0,0,231.59,90.13Z"/></svg>
-      </button>
-      <button id="speaker-btn" class="btn-round" title="Speaker">
-        <svg width="24" height="24" viewBox="0 0 256 256" fill="currentColor"><path d="M155.51,24.81a8,8,0,0,0-8.42.88L77.25,80H32A16,16,0,0,0,16,96v64a16,16,0,0,0,16,16H77.25l69.84,54.31A8,8,0,0,0,160,224V32A8,8,0,0,0,155.51,24.81ZM144,207.64,84.91,161.69A7.94,7.94,0,0,0,80,160H32V96H80a7.94,7.94,0,0,0,4.91-1.69L144,48.36Zm64-79.64a24,24,0,0,1-24,24,8,8,0,0,1,0-16,8,8,0,0,0,0-16,8,8,0,0,1,0-16,24,24,0,0,1,24,24Z"/></svg>
-      </button>
-    </div>
-    <div id="gaze-debug"></div>
-  </div>
-
-  <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
   <script src="https://www.gstatic.com/firebasejs/11.0.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/11.0.0/firebase-auth-compat.js"></script>
   <script src="/socket.io/socket.io.js"></script>
@@ -114,6 +168,6 @@
   <script src="https://p5livemedia.itp.io/simplepeer.min.js"></script>
   <script src="p5livemedia.js"></script>
   <script src="https://unpkg.com/ml5@1/dist/ml5.min.js"></script>
-  <script src="app.js?v=20260329n"></script>
+  <script src="app.js?v=20260329z"></script>
 </body>
 </html>
