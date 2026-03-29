@@ -446,23 +446,15 @@ function startP5(remoteVideoEl) {
       if (vr > cr) { dh = canvasH; dw = canvasH * vr; } else { dw = canvasW; dh = canvasW / vr; }
       dx = (canvasW - dw) / 2; dy = (canvasH - dh) / 2;
       const ctx = p.drawingContext, blur = Math.round(currentBlur);
+      canvasEl.style.filter = 'none'; // never use CSS filter — it bleeds
       ctx.save(); ctx.translate(canvasW, 0); ctx.scale(-1, 1);
-      if (!isMobileDevice) {
-        canvasEl.style.filter = 'none';
-        ctx.filter = blur > 0 ? `blur(${blur}px)` : 'none';
-        ctx.drawImage(vidEl, dx, dy, dw, dh);
-        ctx.filter = 'none';
-      } else {
-        ctx.drawImage(vidEl, dx, dy, dw, dh);
-      }
+      ctx.filter = blur > 0 ? `blur(${blur}px)` : 'none';
+      ctx.drawImage(vidEl, dx, dy, dw, dh);
+      ctx.filter = 'none';
       ctx.restore();
-      if (!isMobileDevice) {
-        if (currentBlur > 5) {
-          p.noStroke(); p.fill(10, 10, 10, p.map(currentBlur, 5, blurAmount, 0, 80));
-          p.rect(0, 0, canvasW, canvasH);
-        }
-      } else {
-        canvasEl.style.filter = blur > 0 ? `blur(${blur}px) brightness(${p.map(currentBlur, 0, blurAmount, 1, 0.6)})` : 'none';
+      if (currentBlur > 5) {
+        p.noStroke(); p.fill(10, 10, 10, p.map(currentBlur, 5, blurAmount, 0, 80));
+        p.rect(0, 0, canvasW, canvasH);
       }
     };
 
