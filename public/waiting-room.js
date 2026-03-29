@@ -56,7 +56,8 @@ void main() {
     vec2 mouse = u_mouse;
     vec2 res = u_resolution;
 
-    vec3 color = vec3(0.04);
+    vec3 color = vec3(0.0);
+    float alpha = 0.0;
 
     for (int i = 0; i < ${MAX_USERS}; i++) {
         if (i >= u_count) break;
@@ -86,12 +87,14 @@ void main() {
 
         // Apply icon inside circle (with blur)
         color = mix(color, iconColor.rgb, avatarFill);
+        alpha = max(alpha, avatarFill);
 
         // Stroke on top (white outline that expands near mouse)
         color = mix(color, vec3(1.0), avatarStroke * 0.6);
+        alpha = max(alpha, avatarStroke * 0.6);
     }
 
-    gl_FragColor = vec4(color, 1.0);
+    gl_FragColor = vec4(color, alpha);
 }
 `;
 
@@ -163,7 +166,7 @@ class WaitingRoom {
     this.scene = new THREE.Scene();
     this.camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 1000);
     this.camera.position.z = 1;
-    this.renderer = new THREE.WebGLRenderer({ antialias: true });
+    this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     this.container.appendChild(this.renderer.domElement);
 
     const posArray = [];
@@ -177,6 +180,7 @@ class WaitingRoom {
     const mat = new THREE.ShaderMaterial({
       vertexShader: VERTEX_SHADER,
       fragmentShader: FRAGMENT_SHADER,
+      transparent: true,
       uniforms: {
         u_photos: { value: this.photoTexture },
         u_mouse: { value: new THREE.Vector2(0, 0) },
