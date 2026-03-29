@@ -468,14 +468,22 @@ body {
   clip-path: inset(0);
 }
 
-#local-video {
+#local-video-wrap {
   position: fixed;
   bottom: 100px;
   right: 20px;
+  z-index: 9999;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  contain: strict;
+  isolation: isolate;
+  background: #000;
+}
+
+#local-video {
+  display: block;
   width: min(160px, 28vw);
   border-radius: var(--radius-sm);
-  border: 3px solid rgba(255,255,255,0.2);
-  z-index: 20;
   transform: scaleX(-1);
 }
 
