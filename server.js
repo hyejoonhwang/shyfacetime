@@ -72,6 +72,32 @@ io.on('connection', (socket) => {
     if (caller) caller.emit('call-declined');
   });
 
+  // ---- p5LiveMedia signaling protocol ----
+  // p5LiveMedia uses these events for WebRTC peer connection setup
+  const p5lmRooms = {};
+
+  socket.on('room_connect', (room) => {
+    socket.p5lmRoom = room;
+    if (!io.p5lmRooms) io.p5lmRooms = {};
+    if (!io.p5lmRooms[room]) io.p5lmRooms[room] = [];
+    io.p5lmRooms[room].push(socket);
+
+    // Send list of existing peers in the room
+    const ids = io.p5lmRooms[room].map(s => s.id);
+    console.log('p5lm room_connect:', room, 'peers:', ids);
+    socket.emit('listresults', ids);
+  });
+
+  socket.on('signal', (to, from, data) => {
+    const room = socket.p5lmRoom;
+    if (room && io.p5lmRooms && io.p5lmRooms[room]) {
+      const target = io.p5lmRooms[room].find(s => s.id === to);
+      if (target) {
+        target.emit('signal', to, from, data);
+      }
+    }
+  });
+
   // User hangs up
   socket.on('hang-up', () => {
     handleHangUp(socket);
@@ -82,6 +108,20 @@ io.on('connection', (socket) => {
     handleHangUp(socket);
     waitingUsers.delete(socket.id);
     broadcastWaitingList();
+
+    // Clean up p5LiveMedia room
+    const room = socket.p5lmRoom;
+    if (room && io.p5lmRooms && io.p5lmRooms[room]) {
+      io.p5lmRooms[room] = io.p5lmRooms[room].filter(s => s.id !== socket.id);
+      // Notify remaining peers
+      io.p5lmRooms[room].forEach(s => {
+        s.emit('peer_disconnect', socket.id);
+      });
+      if (io.p5lmRooms[room].length === 0) {
+        delete io.p5lmRooms[room];
+      }
+    }
+
     console.log('Disconnected:', socket.id);
   });
 });

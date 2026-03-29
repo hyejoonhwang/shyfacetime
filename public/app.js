@@ -179,8 +179,11 @@ socket.on('call-started', async (data) => {
     }
   };
 
-  console.log('Creating p5LiveMedia for room:', roomName);
-  p5lm = new p5LiveMedia(sketchShim, "CAPTURE", localStream, roomName);
+  // Connect p5LiveMedia to OUR server (not the public one)
+  // This avoids Socket.IO version mismatches
+  const host = window.location.origin;
+  console.log('Creating p5LiveMedia for room:', roomName, 'host:', host);
+  p5lm = new p5LiveMedia(sketchShim, "CAPTURE", localStream, roomName, host);
 
   p5lm.on('stream', (stream, id) => {
     console.log('p5LiveMedia stream event! id:', id, 'stream:', stream);
