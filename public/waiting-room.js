@@ -56,45 +56,18 @@ void main() {
     vec2 mouse = u_mouse;
     vec2 res = u_resolution;
 
-    vec3 color = vec3(0.0);
-    float alpha = 0.0;
+    // Sample texture (names drawn on canvas)
+    vec4 texColor = texture2D(u_photos, uv);
 
-    for (int i = 0; i < ${MAX_USERS}; i++) {
-        if (i >= u_count) break;
+    // Mouse proximity blur on the text
+    float mouseDist = length((uv - mouse) * u_aspect);
+    float lens = smoothstep(0.08, 0.0, mouseDist);
+    float blurAmount = lens * 8.0;
+    vec4 blurred = blurSample(u_photos, uv, res, blurAmount);
 
-        vec2 center = u_positions[i];
-        float radius = u_radii[i];
+    vec4 finalColor = mix(texColor, blurred, lens);
 
-        // Distance from pixel to avatar center (aspect corrected)
-        float dist = length((uv - center) * u_aspect);
-
-        // Distance from mouse to this pixel (aspect corrected)
-        float mouseDist = length((uv - mouse) * u_aspect);
-
-        float lens = smoothstep(radius * 0.8, 0.0, mouseDist);
-
-        // Sample icon with blur based on lens proximity
-        float blurAmount = lens * 6.0;
-        vec4 iconColor = blurSample(u_photos, uv, u_aspect * 1000.0, blurAmount);
-
-        // Fill: the avatar circle, slight default soft edge
-        float baseSoft = 0.003;
-        float avatarFill = fill(dist, radius, baseSoft + lens * radius * 0.4);
-
-        // Stroke: circle outline, edge expands with lens
-        float strokeEdge = 0.002 + lens * radius * 0.3;
-        float avatarStroke = stroke(dist, radius, 0.003, strokeEdge) * 2.0;
-
-        // Apply icon inside circle (with blur)
-        color = mix(color, iconColor.rgb, avatarFill);
-        alpha = max(alpha, avatarFill);
-
-        // Stroke on top (white outline that expands near mouse)
-        color = mix(color, vec3(1.0), avatarStroke * 0.6);
-        alpha = max(alpha, avatarStroke * 0.6);
-    }
-
-    gl_FragColor = vec4(color, alpha);
+    gl_FragColor = finalColor;
 }
 `;
 
