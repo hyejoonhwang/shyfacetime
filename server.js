@@ -104,6 +104,15 @@ io.on('connection', (socket) => {
     }
   });
 
+  // Relay gaze score to call partner
+  socket.on('gaze-score', (score) => {
+    const partnerId = activeCalls.get(socket.id);
+    if (partnerId) {
+      const partner = io.sockets.sockets.get(partnerId);
+      if (partner) partner.emit('partner-gaze-score', score);
+    }
+  });
+
   // User hangs up
   socket.on('hang-up', () => {
     handleHangUp(socket);
