@@ -221,7 +221,7 @@ socket.on('partner-gaze-score', (score) => {
 
 // Smooth partner blur with requestAnimationFrame
 function updatePartnerBlur() {
-  partnerBlurSmoothed += (partnerLookTarget * 40 - partnerBlurSmoothed) * 0.04;
+  partnerBlurSmoothed += (partnerLookTarget * 40 - partnerBlurSmoothed) * 0.08;
   const localVid = document.getElementById('local-video');
   if (localVid) {
     const pBlur = Math.round(partnerBlurSmoothed);
@@ -480,11 +480,11 @@ function startP5(remoteVideoEl) {
       }
 
       const targetBlur = lookScore * blurAmount;
-      currentBlur = p.lerp(currentBlur, targetBlur, 0.12);
+      currentBlur = p.lerp(currentBlur, targetBlur, 0.2);
 
       // Send the SMOOTHED blur ratio to partner (matches what they actually see)
       const now = Date.now();
-      if (now - lastGazeSendTime > 100) {
+      if (now - lastGazeSendTime > 50) {
         socket.emit('gaze-score', currentBlur / blurAmount);
         lastGazeSendTime = now;
       }
