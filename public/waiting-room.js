@@ -122,74 +122,41 @@ class WaitingRoom {
           vec2 posMouse = coord(u_mouse * u_pixelRatio) * vec2(1., -1.) + 0.5;
           vec2 uv = v_texcoord;
 
-          // --- The lens: SDF circle around cursor (from codrops) ---
-          // This fill value is used as the EDGE parameter for avatar shapes
-          float circleSize = 0.3;
-          float circleEdge = 0.5;
-          float sdfLens = fill(
-            sdCircle(st, posMouse),
-            circleSize,
-            circleEdge
-          );
-
           // Background
           vec3 color = vec3(0.04);
 
-          // Photo texture (with slight blur for default state)
-          vec2 pixel = 1.0 / u_resolution;
-          vec4 photoBlurred = vec4(0.0);
-          float tw = 0.0;
-          for (float bx = -2.0; bx <= 2.0; bx += 1.0) {
-            for (float by = -2.0; by <= 2.0; by += 1.0) {
-              float bw = exp(-0.5 * (bx*bx + by*by) / 3.0);
-              photoBlurred += texture2D(u_photos, uv + vec2(bx, by) * pixel * 3.0) * bw;
-              tw += bw;
-            }
-          }
-          photoBlurred /= tw;
-          vec4 photoSharp = texture2D(u_photos, uv);
+          // Photo texture
+          vec4 photoColor = texture2D(u_photos, uv);
 
-          // --- Render each avatar circle with SDF lens blur ---
+          // --- Render each avatar with codrops SDF lens blur ---
           for (int i = 0; i < ${MAX_USERS}; i++) {
             if (i >= u_count) break;
 
             vec2 aPos = u_positions[i];
             float aRad = u_radii[i];
+
+            // SDF of this avatar circle
             float sdf = sdCircle(st, aPos);
 
-            // === THE CODROPS TECHNIQUE ===
-            // sdfLens (0-1) is used as the edge parameter
-            // Where cursor is near: sdfLens is high → edge is large
-            //   → stroke expands and blurs outward
-            // Where cursor is far: sdfLens is low → edge is small
-            //   → stroke is thin and sharp
+            // Distance from mouse to this pixel (used as edge param)
+            // No visible circle — just raw distance falloff from mouse point
+            float distToMouse = sdCircle(st, posMouse);
+            float lensInfluence = fill(distToMouse, 0.3, 0.5);
 
-            // Avatar circle stroke — edge controlled by lens
+            // Codrops technique: stroke with edge = lensInfluence
+            // Near mouse: edge is large → stroke expands with blur
+            // Far from mouse: edge is small → stroke is thin and crisp
             float borderSize = 0.015;
-            float avatarStroke = stroke(sdf, aRad, borderSize, sdfLens) * 4.0;
+            float avatarStroke = stroke(sdf, aRad, borderSize, lensInfluence) * 4.0;
 
-            // Avatar circle fill — slight base softness, lens adds more
-            float baseSoftness = 0.06;
-            float avatarFill = fill(sdf, aRad - 0.01, baseSoftness + sdfLens * 0.02);
-
-            // Mix blurry and sharp photo based on lens proximity
-            vec4 photo = mix(photoBlurred, photoSharp, sdfLens * 0.7 + 0.3);
+            // Fill with slight base softness
+            float avatarFill = fill(sdf, aRad - 0.01, 0.05);
 
             // Apply photo inside circle
-            color = mix(color, photo.rgb, avatarFill);
+            color = mix(color, photoColor.rgb, avatarFill);
 
-            // Add the SDF stroke (white, the lens blur ring)
+            // Add the stroke (the expanding blur edge)
             color += vec3(1.0) * avatarStroke * 0.8;
-          }
-
-          // --- Hold progress arc ---
-          if (u_holdProgress > 0.01) {
-            float angle = atan(st.y - posMouse.y, st.x - posMouse.x);
-            float d = sdCircle(st, posMouse);
-            float arcStroke = stroke(d, circleSize * 1.8, 0.015, 0.02) * 3.0;
-            float a = mod(angle + PI, PI * 2.0) / (PI * 2.0);
-            float arc = step(a, u_holdProgress);
-            color += vec3(0.5, 0.6, 1.0) * arcStroke * arc;
           }
 
           gl_FragColor = vec4(color, 1.0);
