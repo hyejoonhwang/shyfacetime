@@ -263,6 +263,21 @@ let frameLoopId = null;
 let lastResultTime = 0;
 let watchdogId = null;
 
+// Preload faceMesh using a minimal p5 instance (required because ml5 v1
+// integrates with p5's preload system when p5 is loaded)
+let faceMeshPreloader = new p5((p) => {
+  p.preload = function () {
+    console.log('Preloading faceMesh model...');
+    faceMesh = ml5.faceMesh({ maxFaces: 1, refineLandmarks: true, flipped: false });
+  };
+  p.setup = function () {
+    p.noCanvas();
+    faceMeshReady = true;
+    console.log('FaceMesh preloaded and ready, detectStart:', typeof faceMesh.detectStart);
+  };
+  p.draw = function () {};
+});
+
 function startFaceMesh(stream) {
   gazeDebug.textContent = 'setting up...';
   console.log('startFaceMesh called');
@@ -287,32 +302,20 @@ function startFaceMesh(stream) {
   function waitForVideo() {
     if (localVid.readyState >= 2 && localVid.videoWidth > 0) {
       console.log('Local video ready:', localVid.videoWidth, 'x', localVid.videoHeight);
-      gazeDebug.textContent = 'video ready, loading model...';
+      gazeDebug.textContent = 'video ready...';
       drawFrame();
 
-      setTimeout(() => {
-        console.log('Creating faceMesh...');
-        faceMesh = ml5.faceMesh({
-          maxFaces: 1,
-          refineLandmarks: true,
-          flipped: false
-        });
-
-        // Poll for model readiness instead of relying on callback
-        // (p5's preload system can interfere with the callback)
-        function checkModelReady() {
-          if (faceMesh && typeof faceMesh.detectStart === 'function') {
-            console.log('FaceMesh ready, has detectStart');
-            faceMeshReady = true;
-            startDetection();
-          } else {
-            console.log('FaceMesh not ready yet, checking...');
-            gazeDebug.textContent = 'loading model...';
-            setTimeout(checkModelReady, 500);
-          }
+      // Wait for both video AND faceMesh to be ready
+      function waitForModel() {
+        if (faceMeshReady && faceMesh && typeof faceMesh.detectStart === 'function') {
+          console.log('Both video and model ready, starting detection');
+          startDetection();
+        } else {
+          gazeDebug.textContent = 'loading model...';
+          setTimeout(waitForModel, 300);
         }
-        checkModelReady();
-      }, 500);
+      }
+      setTimeout(waitForModel, 500); // give canvas a few frames first
     } else {
       gazeDebug.textContent = `waiting for video... rs=${localVid.readyState}`;
       setTimeout(waitForVideo, 300);
