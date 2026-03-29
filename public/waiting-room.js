@@ -1,19 +1,21 @@
 // ============================================================
-// Waiting Room — Three.js scene with SDF lens blur
+// Waiting Room — Three.js scene with codrops SDF lens blur
+// Shader adapted from https://github.com/guilanier/codrops-sdf-lensblur
 // ============================================================
 
 class WaitingRoom {
   constructor(container) {
     this.container = container;
-    this.users = []; // { id, name, photo, x, y, vx, vy, img, texture }
+    this.users = [];
     this.mouse = { x: 0, y: 0 };
     this.mouseDamp = { x: 0, y: 0 };
     this.hoveredUser = null;
     this.holdStart = 0;
     this.holding = false;
     this.holdTarget = null;
-    this.onCallRequest = null; // callback
+    this.onCallRequest = null;
     this.active = false;
+    this.lastTime = 0;
 
     this._initThree();
     this._initEvents();
@@ -24,141 +26,194 @@ class WaitingRoom {
     const h = window.innerHeight;
     const dpr = Math.min(window.devicePixelRatio, 2);
 
-    // Offscreen canvas for rendering avatars
+    // Offscreen canvas for rendering avatar photos
     this.avatarCanvas = document.createElement('canvas');
     this.avatarCanvas.width = w * dpr;
     this.avatarCanvas.height = h * dpr;
     this.avatarCtx = this.avatarCanvas.getContext('2d');
 
-    // Three.js setup
-    this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-    this.renderer.setSize(w, h);
-    this.renderer.setPixelRatio(dpr);
+    // Three.js setup — mirrors the codrops structure
+    this.scene = new THREE.Scene();
+    this.vMouse = new THREE.Vector2();
+    this.vMouseDamp = new THREE.Vector2();
+    this.vResolution = new THREE.Vector2();
+
+    this.camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 1000);
+    this.camera.position.z = 1;
+
+    this.renderer = new THREE.WebGLRenderer({ antialias: true });
     this.container.appendChild(this.renderer.domElement);
 
-    this.scene = new THREE.Scene();
-    this.camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
-
-    // Avatar texture (updated each frame from the offscreen canvas)
+    // Avatar texture (updated each frame)
     this.avatarTexture = new THREE.CanvasTexture(this.avatarCanvas);
     this.avatarTexture.minFilter = THREE.LinearFilter;
     this.avatarTexture.magFilter = THREE.LinearFilter;
 
-    // Full-screen quad with lens blur shader
-    const geo = new THREE.PlaneGeometry(2, 2);
+    const geo = new THREE.PlaneGeometry(1, 1);
+
+    // Fragment shader adapted from codrops SDF lens blur
     const mat = new THREE.ShaderMaterial({
-      uniforms: {
-        u_texture: { value: this.avatarTexture },
-        u_mouse: { value: new THREE.Vector2(0.5, 0.5) },
-        u_resolution: { value: new THREE.Vector2(w * dpr, h * dpr) },
-        u_holdProgress: { value: 0.0 },
-        u_hasHover: { value: 0.0 },
-        u_time: { value: 0.0 }
-      },
       vertexShader: `
-        varying vec2 v_uv;
+        varying vec2 v_texcoord;
         void main() {
-          v_uv = uv;
-          gl_Position = vec4(position, 1.0);
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+          v_texcoord = uv;
         }
       `,
       fragmentShader: `
         precision highp float;
-        varying vec2 v_uv;
-        uniform sampler2D u_texture;
+        varying vec2 v_texcoord;
         uniform vec2 u_mouse;
         uniform vec2 u_resolution;
+        uniform float u_pixelRatio;
+        uniform sampler2D u_avatars;
         uniform float u_holdProgress;
         uniform float u_hasHover;
         uniform float u_time;
 
-        // Gaussian blur by sampling in a circle pattern
-        vec4 blur(sampler2D tex, vec2 uv, vec2 res, float radius) {
-          vec4 sum = vec4(0.0);
-          float total = 0.0;
-          vec2 pixel = 1.0 / res;
-          for (float x = -6.0; x <= 6.0; x += 1.0) {
-            for (float y = -6.0; y <= 6.0; y += 1.0) {
-              float d = length(vec2(x, y));
-              if (d > 6.0) continue;
-              float w = exp(-0.5 * d * d / max(radius * radius * 0.08, 0.01));
-              sum += texture2D(tex, uv + vec2(x, y) * pixel * radius * 0.5) * w;
-              total += w;
-            }
+        #define PI 3.1415926535897932
+        #define TWO_PI 6.2831853071795865
+
+        // --- Coordinate utils from codrops ---
+        vec2 coord(in vec2 p) {
+          p = p / u_resolution.xy;
+          if (u_resolution.x > u_resolution.y) {
+            p.x *= u_resolution.x / u_resolution.y;
+            p.x += (u_resolution.y - u_resolution.x) / u_resolution.y / 2.0;
+          } else {
+            p.y *= u_resolution.y / u_resolution.x;
+            p.y += (u_resolution.x - u_resolution.y) / u_resolution.x / 2.0;
           }
-          return sum / total;
+          p -= 0.5;
+          p *= vec2(-1.0, 1.0);
+          return p;
+        }
+
+        // --- SDF functions from codrops ---
+        float sdCircle(in vec2 st, in vec2 center) {
+          return length(st - center) * 2.0;
+        }
+
+        float aastep(float threshold, float value) {
+          float afwidth = length(vec2(dFdx(value), dFdy(value))) * 0.70710678118654757;
+          return smoothstep(threshold - afwidth, threshold + afwidth, value);
+        }
+
+        float fill(in float x) { return 1.0 - aastep(0.0, x); }
+        float fill(float x, float size, float edge) {
+          return 1.0 - smoothstep(size - edge, size + edge, x);
+        }
+
+        float stroke(in float d, in float t) { return (1.0 - aastep(t, abs(d))); }
+        float stroke(float x, float size, float w, float edge) {
+          float d = smoothstep(size - edge, size + edge, x + w * 0.5)
+                  - smoothstep(size - edge, size + edge, x - w * 0.5);
+          return clamp(d, 0.0, 1.0);
         }
 
         void main() {
-          vec2 uv = v_uv;
-          vec2 aspect = vec2(u_resolution.x / u_resolution.y, 1.0);
+          vec2 st = coord(gl_FragCoord.xy) + 0.5;
+          vec2 posMouse = coord(u_mouse * u_pixelRatio) * vec2(1., -1.) + 0.5;
 
-          vec2 mouseUV = u_mouse;
-          float dist = length((uv - mouseUV) * aspect);
+          // --- Lens SDF circle (from codrops) ---
+          // This is the core trick: the lens circle's fill value
+          // is used as the 'edge' parameter for other shapes
+          float lensSize = 0.25 + u_holdProgress * 0.1;
+          float lensEdge = 0.45 + u_holdProgress * 0.15;
+          float sdfLens = fill(
+            sdCircle(st, posMouse),
+            lensSize,
+            lensEdge
+          ) * u_hasHover;
 
-          // Bigger lens, grows more during hold
-          float lensRadius = 0.18 + u_holdProgress * 0.08;
+          // --- Sample avatar texture ---
+          vec2 uv = v_texcoord;
+          vec4 texColor = texture2D(u_avatars, uv);
 
-          // Sharp lens edge with dramatic falloff
-          float lensEdge = smoothstep(lensRadius, lensRadius * 0.15, dist);
+          // --- Apply the codrops-style SDF effect ---
+          // Use the lens SDF to control edge sharpness of a full-screen circle
+          // This creates the signature "blur-to-sharp" lens distortion
+          float sdfBg = sdCircle(st, vec2(0.5));
 
-          // Stronger base blur
-          float blurAmount = mix(8.0, 0.0, lensEdge * u_hasHover);
+          // Variation: stroke with edge controlled by lens proximity
+          float shape = stroke(sdfBg, 0.9, 0.8, sdfLens) * 1.5;
 
-          vec4 blurred = blur(u_texture, uv, u_resolution, blurAmount);
-          vec4 clear = texture2D(u_texture, uv);
-          vec4 color = mix(blurred, clear, lensEdge * u_hasHover);
+          // Blend: outside lens = blurred/faded avatars, inside = clear
+          // The SDF shape modulates visibility
+          float clarity = clamp(sdfLens * 1.5, 0.0, 1.0);
 
-          // UV distortion — warp pixels near the lens edge (barrel distortion)
-          float distortZone = smoothstep(lensRadius * 1.4, lensRadius * 0.5, dist) * u_hasHover;
-          vec2 toMouse = uv - mouseUV;
-          float distortAmount = 0.03 + u_holdProgress * 0.06;
-          vec2 distortedUV = uv - toMouse * distortZone * distortAmount;
-          vec4 distorted = texture2D(u_texture, distortedUV);
-          color = mix(color, distorted, distortZone * 0.6);
+          // Blurred version (offset sampling to simulate blur)
+          vec2 pixel = 1.0 / u_resolution;
+          vec4 blurred = vec4(0.0);
+          float blurRadius = 8.0 * (1.0 - clarity);
+          for (float i = -3.0; i <= 3.0; i += 1.0) {
+            for (float j = -3.0; j <= 3.0; j += 1.0) {
+              float w = exp(-0.5 * (i*i + j*j) / 4.5);
+              blurred += texture2D(u_avatars, uv + vec2(i, j) * pixel * blurRadius) * w;
+            }
+          }
+          blurred /= blurred.a > 0.0 ? blurred.a / texColor.a : 1.0;
+          // Normalize
+          float totalW = 0.0;
+          vec4 blurNorm = vec4(0.0);
+          for (float i = -3.0; i <= 3.0; i += 1.0) {
+            for (float j = -3.0; j <= 3.0; j += 1.0) {
+              float w = exp(-0.5 * (i*i + j*j) / 4.5);
+              blurNorm += texture2D(u_avatars, uv + vec2(i, j) * pixel * blurRadius) * w;
+              totalW += w;
+            }
+          }
+          blurred = blurNorm / totalW;
 
-          // Strong chromatic aberration at lens edge
-          float ringZone = smoothstep(lensRadius * 0.7, lensRadius, dist) *
-                          smoothstep(lensRadius * 1.5, lensRadius, dist);
-          float aberration = ringZone * u_hasHover * (0.012 + u_holdProgress * 0.025);
-          vec2 dir = normalize(uv - mouseUV) * aberration;
-          color.r = mix(color.r, texture2D(u_texture, uv + dir).r, ringZone * u_hasHover);
-          color.b = mix(color.b, texture2D(u_texture, uv - dir).b, ringZone * u_hasHover);
+          vec4 finalTex = mix(blurred, texColor, clarity);
 
-          // Subtle brightness boost inside lens
-          color.rgb += vec3(0.06) * lensEdge * u_hasHover;
+          // --- SDF overlay: the geometric distortion ring ---
+          // Stroke ring around the lens, edge controlled by lens SDF
+          float ring = stroke(sdCircle(st, posMouse), lensSize * 2.0, 0.02, sdfLens * 0.5) * 3.0;
 
-          // Animated shimmer at lens edge
-          float shimmer = sin(dist * 80.0 - u_time * 3.0) * 0.5 + 0.5;
-          float edgeLine = smoothstep(0.008, 0.0, abs(dist - lensRadius)) * u_hasHover;
-          color.rgb += vec3(0.4, 0.5, 0.7) * edgeLine * shimmer * 0.5;
+          // Chromatic aberration at lens boundary
+          vec2 dir = normalize(st - posMouse) * sdfLens * 0.008;
+          float chromR = texture2D(u_avatars, uv + dir).r;
+          float chromB = texture2D(u_avatars, uv - dir).b;
+          finalTex.r = mix(finalTex.r, chromR, sdfLens * 0.5);
+          finalTex.b = mix(finalTex.b, chromB, sdfLens * 0.5);
 
-          // Hold progress ring
+          // Combine
+          vec3 color = finalTex.rgb;
+
+          // Add SDF ring as white overlay
+          color += vec3(ring * 0.4) * u_hasHover;
+
+          // --- Hold progress arc ---
           if (u_holdProgress > 0.01) {
-            float angle = atan(uv.y - mouseUV.y, (uv.x - mouseUV.x) * aspect.x);
-            float ringDist = length((uv - mouseUV) * aspect);
-            float ringRadius = lensRadius * 1.08;
-            float ringWidth = 0.006 + u_holdProgress * 0.004;
-            float ring = smoothstep(ringWidth, 0.0, abs(ringDist - ringRadius));
+            float angle = atan(st.y - posMouse.y, st.x - posMouse.x);
+            float arcDist = sdCircle(st, posMouse);
+            float arcRing = stroke(arcDist, lensSize * 2.2, 0.025, 0.02) * 4.0;
 
             float progress = u_holdProgress;
-            float a = mod(angle + 3.14159, 6.28318) / 6.28318;
+            float a = mod(angle + PI, TWO_PI) / TWO_PI;
             float arc = step(a, progress);
 
-            // Brighter, wider glow
-            float glow = ring * arc;
-            color.rgb += vec3(0.6, 0.7, 1.0) * glow * 1.2;
+            color += vec3(0.5, 0.6, 1.0) * arcRing * arc;
 
-            // Inner pulse during hold
-            float pulse = sin(u_time * 6.0) * 0.5 + 0.5;
-            float innerGlow = smoothstep(lensRadius, lensRadius * 0.5, dist) * u_holdProgress;
-            color.rgb += vec3(0.3, 0.4, 0.7) * innerGlow * pulse * 0.3;
+            // Pulsing center glow
+            float pulse = sin(u_time * 5.0) * 0.5 + 0.5;
+            float centerGlow = fill(sdCircle(st, posMouse), lensSize, 0.3) * u_holdProgress;
+            color += vec3(0.2, 0.3, 0.6) * centerGlow * pulse * 0.4;
           }
 
-          gl_FragColor = color;
+          gl_FragColor = vec4(color, 1.0);
         }
       `,
-      transparent: true
+      uniforms: {
+        u_mouse: { value: this.vMouseDamp },
+        u_resolution: { value: this.vResolution },
+        u_pixelRatio: { value: dpr },
+        u_avatars: { value: this.avatarTexture },
+        u_holdProgress: { value: 0.0 },
+        u_hasHover: { value: 0.0 },
+        u_time: { value: 0.0 }
+      }
     });
 
     this.quad = new THREE.Mesh(geo, mat);
@@ -168,21 +223,48 @@ class WaitingRoom {
     this.w = w;
     this.h = h;
     this.dpr = dpr;
+
+    this._resize();
+  }
+
+  _resize() {
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    const dpr = Math.min(window.devicePixelRatio, 2);
+
+    this.w = w;
+    this.h = h;
+    this.dpr = dpr;
+
+    this.renderer.setSize(w, h);
+    this.renderer.setPixelRatio(dpr);
+
+    this.avatarCanvas.width = w * dpr;
+    this.avatarCanvas.height = h * dpr;
+
+    // Orthographic camera matching codrops setup
+    this.camera.left = -w / 2;
+    this.camera.right = w / 2;
+    this.camera.top = h / 2;
+    this.camera.bottom = -h / 2;
+    this.camera.updateProjectionMatrix();
+
+    this.quad.scale.set(w, h, 1);
+    this.vResolution.set(w, h).multiplyScalar(dpr);
+    this.material.uniforms.u_pixelRatio.value = dpr;
   }
 
   _initEvents() {
     const onMove = (e) => {
       const x = e.touches ? e.touches[0].clientX : e.clientX;
       const y = e.touches ? e.touches[0].clientY : e.clientY;
-      this.mouse.x = x;
-      this.mouse.y = y;
+      this.vMouse.set(x, y);
     };
 
     const onDown = (e) => {
       const x = e.touches ? e.touches[0].clientX : e.clientX;
       const y = e.touches ? e.touches[0].clientY : e.clientY;
-      this.mouse.x = x;
-      this.mouse.y = y;
+      this.vMouse.set(x, y);
       this._updateHover();
 
       if (this.hoveredUser) {
@@ -204,25 +286,12 @@ class WaitingRoom {
     window.addEventListener('touchstart', onDown, { passive: true });
     window.addEventListener('mouseup', onUp);
     window.addEventListener('touchend', onUp);
-
     window.addEventListener('resize', () => this._resize());
-  }
-
-  _resize() {
-    const w = window.innerWidth;
-    const h = window.innerHeight;
-    const dpr = Math.min(window.devicePixelRatio, 2);
-    this.w = w;
-    this.h = h;
-    this.dpr = dpr;
-    this.renderer.setSize(w, h);
-    this.avatarCanvas.width = w * dpr;
-    this.avatarCanvas.height = h * dpr;
-    this.material.uniforms.u_resolution.value.set(w * dpr, h * dpr);
   }
 
   start() {
     this.active = true;
+    this.lastTime = performance.now() * 0.001;
     this._animate();
   }
 
@@ -231,17 +300,14 @@ class WaitingRoom {
   }
 
   updateUsers(userList, myId) {
-    // Add new users, remove departed ones
     const currentIds = new Set(userList.map(u => u.id));
-    // Remove users no longer in list
     this.users = this.users.filter(u => currentIds.has(u.id));
 
     for (const u of userList) {
-      if (u.id === myId) continue; // don't show yourself
+      if (u.id === myId) continue;
 
       let existing = this.users.find(eu => eu.id === u.id);
       if (!existing) {
-        // New user — add with random position
         const padding = 100;
         const newUser = {
           id: u.id,
@@ -255,7 +321,6 @@ class WaitingRoom {
           radius: 45
         };
 
-        // Load profile photo
         if (u.photo) {
           const img = new Image();
           img.crossOrigin = 'anonymous';
@@ -265,7 +330,6 @@ class WaitingRoom {
 
         this.users.push(newUser);
       } else {
-        // Update existing user info
         existing.name = u.name;
         if (u.photo && u.photo !== existing.photo) {
           existing.photo = u.photo;
@@ -280,11 +344,13 @@ class WaitingRoom {
 
   _updateHover() {
     this.hoveredUser = null;
+    const mx = this.vMouse.x;
+    const my = this.vMouse.y;
     for (const u of this.users) {
-      const dx = this.mouse.x - u.x;
-      const dy = this.mouse.y - u.y;
+      const dx = mx - u.x;
+      const dy = my - u.y;
       const dist = Math.sqrt(dx * dx + dy * dy);
-      if (dist < u.radius + 20) {
+      if (dist < u.radius + 30) {
         this.hoveredUser = u;
         break;
       }
@@ -295,23 +361,20 @@ class WaitingRoom {
     const ctx = this.avatarCtx;
     const dpr = this.dpr;
     ctx.clearRect(0, 0, this.avatarCanvas.width, this.avatarCanvas.height);
-
     ctx.save();
     ctx.scale(dpr, dpr);
 
     for (const u of this.users) {
-      // Float animation — gentle drift
       u.x += u.vx;
       u.y += u.vy;
 
-      // Bounce off walls
       const pad = u.radius;
       if (u.x < pad || u.x > this.w - pad) u.vx *= -1;
       if (u.y < pad || u.y > this.h - pad) u.vy *= -1;
       u.x = Math.max(pad, Math.min(this.w - pad, u.x));
       u.y = Math.max(pad, Math.min(this.h - pad, u.y));
 
-      // Draw circle avatar
+      // Circle avatar
       ctx.save();
       ctx.beginPath();
       ctx.arc(u.x, u.y, u.radius, 0, Math.PI * 2);
@@ -321,7 +384,6 @@ class WaitingRoom {
       if (u.img) {
         ctx.drawImage(u.img, u.x - u.radius, u.y - u.radius, u.radius * 2, u.radius * 2);
       } else {
-        // Placeholder circle
         ctx.fillStyle = '#333';
         ctx.fill();
         ctx.fillStyle = '#888';
@@ -333,10 +395,10 @@ class WaitingRoom {
       ctx.restore();
 
       // Name label
-      ctx.fillStyle = '#ccc';
-      ctx.font = '13px "Helvetica Neue", sans-serif';
+      ctx.fillStyle = '#999';
+      ctx.font = '12px "Helvetica Neue", sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText(u.name, u.x, u.y + u.radius + 18);
+      ctx.fillText(u.name, u.x, u.y + u.radius + 16);
     }
 
     ctx.restore();
@@ -346,25 +408,23 @@ class WaitingRoom {
     if (!this.active) return;
     requestAnimationFrame(() => this._animate());
 
-    // Smooth mouse damping
-    this.mouseDamp.x += (this.mouse.x - this.mouseDamp.x) * 0.1;
-    this.mouseDamp.y += (this.mouse.y - this.mouseDamp.y) * 0.1;
+    const time = performance.now() * 0.001;
+    const dt = time - this.lastTime;
+    this.lastTime = time;
 
-    // Update hover
+    // Mouse damping — exactly like codrops
+    this.vMouseDamp.x = THREE.MathUtils.damp(this.vMouseDamp.x, this.vMouse.x, 8, dt);
+    this.vMouseDamp.y = THREE.MathUtils.damp(this.vMouseDamp.y, this.vMouse.y, 8, dt);
+
     this._updateHover();
 
-    // Handle hold progress
+    // Hold progress
     let holdProgress = 0;
     if (this.holding && this.holdTarget) {
-      const elapsed = (Date.now() - this.holdStart) / 2000; // 2 seconds
-      holdProgress = Math.min(elapsed, 1.0);
-
+      holdProgress = Math.min((Date.now() - this.holdStart) / 2000, 1.0);
       if (holdProgress >= 1.0) {
-        // Call request!
         this.holding = false;
-        if (this.onCallRequest) {
-          this.onCallRequest(this.holdTarget.id);
-        }
+        if (this.onCallRequest) this.onCallRequest(this.holdTarget.id);
         this.holdStart = 0;
         this.holdTarget = null;
       }
@@ -373,17 +433,13 @@ class WaitingRoom {
     // Draw avatars to offscreen canvas
     this._drawAvatars();
 
-    // Update Three.js uniforms
+    // Update uniforms
     this.avatarTexture.needsUpdate = true;
-    this.material.uniforms.u_mouse.value.set(
-      this.mouseDamp.x / this.w,
-      1.0 - this.mouseDamp.y / this.h // flip Y for shader
-    );
     this.material.uniforms.u_holdProgress.value = holdProgress;
     this.material.uniforms.u_hasHover.value = this.hoveredUser ? 1.0 : 0.0;
-    this.material.uniforms.u_time.value = performance.now() * 0.001;
+    this.material.uniforms.u_time.value = time;
 
-    // Update hover name display
+    // Hover name
     const hoverNameEl = document.getElementById('hover-name');
     if (hoverNameEl) {
       if (this.hoveredUser) {
@@ -394,7 +450,6 @@ class WaitingRoom {
       }
     }
 
-    // Render
     this.renderer.render(this.scene, this.camera);
   }
 
