@@ -630,15 +630,38 @@ body {
       "topbar"
       "content";
   }
+  #app-shell.sidebar-collapsed {
+    grid-template-columns: 1fr;
+  }
   #sidebar { display: none; }
 
-  .video-frame {
-    width: 44vw;
+  #call-videos {
+    flex-direction: column;
+    gap: 10px;
   }
 
-  #call-videos {
-    gap: 8px;
+  .video-frame {
+    width: 85vw;
+    max-width: none;
+    aspect-ratio: 16/9;
   }
+
+  #call-layout {
+    gap: 14px;
+  }
+
+  #call-controls {
+    padding: 8px 20px;
+    gap: 12px;
+  }
+
+  .btn-control { width: 42px; height: 42px; }
+  .btn-control-danger { width: 48px; height: 48px; }
+  .control-icon { width: 18px; height: 18px; }
 
   #login-content { padding-top: 4vh; }
+
+  .connecting-profiles { gap: 24px; }
+  .connecting-name-circle { width: 72px; height: 72px; }
+  .connecting-name-circle span { font-size: 14px; }
 }
