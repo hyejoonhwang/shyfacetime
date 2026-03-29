@@ -30,15 +30,16 @@ body {
   position: relative;
 }
 
-#spline-bg {
+#spline-bg, #spline-bg-waiting {
   position: absolute;
   top: 0;
   left: 0;
   width: 100vw;
-  height: 100vh;
+  height: calc(100vh + 40px);
   z-index: 0;
   border: none;
   pointer-events: none;
+  clip-path: inset(0 0 40px 0);
 }
 
 #login-content {
@@ -91,17 +92,6 @@ button:hover {
   position: relative;
   justify-content: center;
   align-items: center;
-}
-
-#spline-bg-waiting {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
-  z-index: 0;
-  border: none;
-  pointer-events: none;
 }
 
 #waiting-room-canvas {
