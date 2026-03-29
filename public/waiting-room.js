@@ -57,23 +57,18 @@ void main() {
 
         float lens = smoothstep(radius * 0.8, 0.0, mouseDist);
 
-        // Fill: blurs outward with lens (like before)
+        // Fill: the avatar circle, slight default soft edge
         float baseSoft = 0.003;
         float avatarFill = fill(dist, radius, baseSoft + lens * radius * 0.4);
 
-        // The expansion zone: pixels outside the crisp circle but inside the blurred fill
-        float crispFill = fill(dist, radius, 0.003);
-        float expansionZone = clamp(avatarFill - crispFill, 0.0, 1.0);
-
-        // Photo inside the crisp part
-        color = mix(color, photoColor.rgb, crispFill);
-
-        // White in the expansion part (100% opaque white)
-        color = mix(color, vec3(1.0), expansionZone);
-
-        // Circle outline stroke (always visible, attached to profile)
+        // Stroke: circle outline, edge expands with lens
         float strokeEdge = 0.002 + lens * radius * 0.3;
         float avatarStroke = stroke(dist, radius, 0.003, strokeEdge) * 2.0;
+
+        // Apply photo inside circle
+        color = mix(color, photoColor.rgb, avatarFill);
+
+        // Stroke on top (white outline that expands near mouse)
         color = mix(color, vec3(1.0), avatarStroke * 0.6);
     }
 
