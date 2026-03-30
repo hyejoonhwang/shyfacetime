@@ -579,6 +579,12 @@ function onFaceResults(results) {
 
 function startP5(remoteVideoEl) {
   if (p5Instance) return;
+  // Delay to let DOM layout settle (container needs dimensions)
+  const container = document.getElementById('canvas-container');
+  if (!container || container.clientWidth === 0) {
+    setTimeout(() => startP5(remoteVideoEl), 100);
+    return;
+  }
   p5Instance = new p5((p) => {
     let vidEl, blurAmount = 40, currentBlur = 40, canvasEl;
     let cW, cH;
