@@ -99,19 +99,34 @@ signoutBtn.addEventListener('click', () => {
 const blurLens = document.getElementById('blur-lens');
 const blurLensShell = document.getElementById('blur-lens-shell');
 
-if (blurLens) {
-  document.getElementById('login-screen').addEventListener('mousemove', (e) => {
-    blurLens.style.left = e.clientX + 'px';
-    blurLens.style.top = e.clientY + 'px';
+function trackLens(lens, target) {
+  if (!lens || !target) return;
+
+  // Mouse (desktop)
+  target.addEventListener('mousemove', (e) => {
+    lens.style.left = e.clientX + 'px';
+    lens.style.top = e.clientY + 'px';
+  });
+
+  // Touch (mobile) — show on touch, follow finger, hide on release
+  target.addEventListener('touchstart', (e) => {
+    lens.style.opacity = '1';
+    lens.style.left = e.touches[0].clientX + 'px';
+    lens.style.top = e.touches[0].clientY + 'px';
+  }, { passive: true });
+
+  target.addEventListener('touchmove', (e) => {
+    lens.style.left = e.touches[0].clientX + 'px';
+    lens.style.top = e.touches[0].clientY + 'px';
+  }, { passive: true });
+
+  target.addEventListener('touchend', () => {
+    lens.style.opacity = '0';
   });
 }
 
-if (blurLensShell) {
-  document.addEventListener('mousemove', (e) => {
-    blurLensShell.style.left = e.clientX + 'px';
-    blurLensShell.style.top = e.clientY + 'px';
-  });
-}
+trackLens(blurLens, document.getElementById('login-screen'));
+trackLens(blurLensShell, document);
 
 // --- Clock ---
 function updateClock() {

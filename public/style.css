@@ -779,6 +779,9 @@ body {
   #user-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; }
   .user-card { padding: 16px 12px; }
 
-  /* Hide blur lens on mobile (touch has no hover) */
-  #blur-lens, #blur-lens-shell { display: none; }
+  /* Blur lens follows touch on mobile */
+  #blur-lens, #blur-lens-shell {
+    width: 150px;
+    height: 150px;
+  }
 }
