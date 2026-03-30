@@ -697,8 +697,10 @@ body {
   width: 96px;
   height: 96px;
   border-radius: var(--radius-full);
-  border: 2px solid var(--border);
-  background: var(--bg-card);
+  border: 1px solid var(--border);
+  background: var(--bg-glass);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -706,9 +708,11 @@ body {
 }
 
 .connecting-name-circle span {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
   color: var(--text-primary);
+  text-align: center;
+  line-height: 1.2;
 }
 
 .connecting-pulse {
@@ -720,21 +724,33 @@ body {
   justify-content: center;
 }
 
-.pulse-phone-icon { width: 20px; height: 20px; color: var(--brand); }
+.pulse-phone-icon {
+  width: 20px;
+  height: 20px;
+  color: var(--brand);
+  animation: blur-breathe 2.5s ease-in-out infinite;
+}
+
+@keyframes blur-breathe {
+  0% { filter: blur(0px); opacity: 1; }
+  50% { filter: blur(4px); opacity: 0.4; }
+  100% { filter: blur(0px); opacity: 1; }
+}
 
 .pulse-ring {
   position: absolute;
   inset: 0;
-  border: 1.5px solid var(--brand);
+  border: 1px solid var(--brand);
   border-radius: var(--radius-full);
-  animation: pulse-expand 2s ease-out infinite;
-  opacity: 0;
+  animation: ring-breathe 2.5s ease-in-out infinite;
+  opacity: 0.3;
 }
-.pulse-ring.delay { animation-delay: 1s; }
+.pulse-ring.delay { animation-delay: 1.25s; }
 
-@keyframes pulse-expand {
-  0% { transform: scale(0.5); opacity: 0.6; }
-  100% { transform: scale(2); opacity: 0; }
+@keyframes ring-breathe {
+  0% { filter: blur(0px); opacity: 0.3; transform: scale(1); }
+  50% { filter: blur(3px); opacity: 0.1; transform: scale(1.1); }
+  100% { filter: blur(0px); opacity: 0.3; transform: scale(1); }
 }
 
 #connecting-actions {
