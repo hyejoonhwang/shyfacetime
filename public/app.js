@@ -581,8 +581,9 @@ function startP5(remoteVideoEl) {
   if (p5Instance) return;
   // Delay to let DOM layout settle (container needs dimensions)
   const container = document.getElementById('canvas-container');
+  console.log('startP5 container:', container ? `${container.clientWidth}x${container.clientHeight}` : 'null');
   if (!container || container.clientWidth === 0) {
-    setTimeout(() => startP5(remoteVideoEl), 100);
+    setTimeout(() => startP5(remoteVideoEl), 200);
     return;
   }
   p5Instance = new p5((p) => {
