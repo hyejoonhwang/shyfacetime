@@ -1061,7 +1061,7 @@ body {
   .sidebar-collapsed .nav-label { display: inline; }
 
   /* All views: no scroll */
-  .view, #content { overflow: hidden; }
+  .view, #content, .waiting-content, .echoes-layout, .mirror-layout { overflow: hidden; }
 
   /* Call page */
   #call-videos {
@@ -1080,7 +1080,8 @@ body {
   .control-icon { width: 18px; height: 18px; }
 
   /* Landing */
-  #login-content { padding-top: 4vh; }
+  #login-screen { overflow: hidden; }
+  #login-content { padding-top: 4vh; overflow: hidden; }
 
   /* Connecting */
   .connecting-profiles { gap: 24px; }
