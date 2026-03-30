@@ -186,7 +186,6 @@ auth.onAuthStateChanged((user) => {
     myName = user.displayName || 'Anonymous';
     myPhoto_url = user.photoURL || '';
     sidebarName.textContent = myName.toLowerCase();
-    // Fade: login out, shell in
     loginScreen.classList.remove('active');
     appShell.classList.remove('shell-hidden');
     showView('waiting');
