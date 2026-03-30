@@ -217,17 +217,16 @@ document.querySelectorAll('.nav-item').forEach(item => {
 // ============================================================
 
 // Handle redirect result on page load (for mobile sign-in)
-auth.getRedirectResult().catch(err => {
-  if (err.code !== 'auth/no-auth-event') console.error('Redirect result error:', err);
-});
+try { auth.getRedirectResult().catch(() => {}); } catch(e) {}
 
 googleSigninBtn.addEventListener('click', () => {
-  // Try popup first, fall back to redirect if blocked
+  console.log('Sign-in button clicked');
   auth.signInWithPopup(googleProvider).catch(err => {
-    console.log('Popup failed, using redirect:', err.code);
+    console.log('Popup blocked, trying redirect:', err.code);
     auth.signInWithRedirect(googleProvider);
   });
 });
+console.log('Sign-in button handler registered');
 
 signoutBtn.addEventListener('click', () => auth.signOut());
 
@@ -237,16 +236,10 @@ auth.onAuthStateChanged((user) => {
     myName = user.displayName || 'Anonymous';
     myPhoto_url = user.photoURL || '';
     // name display removed from sidebar
-    // Blur whole page → swap → unblur
-    if (pageBlur) pageBlur.classList.add('active');
-    setTimeout(() => {
-      loginScreen.classList.remove('active');
-      appShell.classList.remove('shell-hidden');
-      showView('waiting');
-      setTimeout(() => {
-        if (pageBlur) pageBlur.classList.remove('active');
-      }, 100);
-    }, 600);
+    // Simple instant switch — no transitions on auth (must be reliable)
+    loginScreen.classList.remove('active');
+    appShell.classList.remove('shell-hidden');
+    showView('waiting');
     socket.emit('join', { name: myName, photo: myPhoto_url, uid: currentUser ? currentUser.uid : '' });
   } else {
     currentUser = null;
