@@ -20,7 +20,7 @@ const loginScreen = document.getElementById('login-screen');
 const appShell = document.getElementById('app-shell');
 const googleSigninBtn = document.getElementById('google-signin-btn');
 const signoutBtn = document.getElementById('signout-btn');
-const sidebarName = document.getElementById('sidebar-name');
+// sidebar-name removed — sign out is now a nav item
 const topbarContext = document.getElementById('topbar-context');
 const topbarClock = document.getElementById('topbar-clock');
 const gazeDebug = document.getElementById('gaze-debug');
@@ -185,7 +185,7 @@ auth.onAuthStateChanged((user) => {
     currentUser = user;
     myName = user.displayName || 'Anonymous';
     myPhoto_url = user.photoURL || '';
-    sidebarName.textContent = myName.toLowerCase();
+    // name display removed from sidebar
     loginScreen.classList.remove('active');
     appShell.classList.remove('shell-hidden');
     showView('waiting');
