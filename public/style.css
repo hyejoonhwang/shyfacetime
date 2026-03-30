@@ -61,7 +61,23 @@ body {
   z-index: 10;
 }
 .screen.blur-out {
-  filter: blur(12px);
+  filter: blur(16px);
+}
+
+/* Full-page blur transition overlay */
+#page-blur {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  pointer-events: none;
+  backdrop-filter: blur(0px);
+  -webkit-backdrop-filter: blur(0px);
+  transition: backdrop-filter 0.6s ease-in-out, -webkit-backdrop-filter 0.6s ease-in-out;
+}
+
+#page-blur.active {
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
 }
 
 .view {
@@ -508,11 +524,6 @@ body {
   z-index: 1;
   background: rgba(246, 244, 239, 0.5);
   isolation: isolate;
-  transition: filter 0.3s ease;
-}
-
-#content.transitioning {
-  filter: blur(12px);
 }
 
 /* ============================================

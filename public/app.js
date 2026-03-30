@@ -141,34 +141,34 @@ setInterval(updateClock, 30000);
 // ============================================================
 
 let isTransitioning = false;
+const pageBlur = document.getElementById('page-blur');
 
 function showView(viewId) {
-  const content = document.getElementById('content');
   const currentView = document.querySelector('.view.active');
   const nextView = document.getElementById('view-' + viewId);
 
-  // Skip transition if same view or no content element
-  if (!content || (currentView && currentView.id === 'view-' + viewId)) return;
+  // Skip if same view
+  if (currentView && currentView.id === 'view-' + viewId) return;
 
-  // Blur in → swap → blur out
-  if (!isTransitioning && currentView) {
+  // Blur whole page → swap → unblur
+  if (!isTransitioning && currentView && pageBlur) {
     isTransitioning = true;
-    content.classList.add('transitioning');
+    pageBlur.classList.add('active');
 
     setTimeout(() => {
-      // Swap views while blurred
+      // Swap while fully blurred
       document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
       if (nextView) nextView.classList.add('active');
       updateViewMeta(viewId);
 
-      // Blur out
+      // Unblur
       setTimeout(() => {
-        content.classList.remove('transitioning');
+        pageBlur.classList.remove('active');
         isTransitioning = false;
-      }, 50);
-    }, 300);
+      }, 100);
+    }, 600);
   } else {
-    // No transition (first load or already transitioning)
+    // No transition (first load)
     document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
     if (nextView) nextView.classList.add('active');
     updateViewMeta(viewId);
@@ -237,14 +237,16 @@ auth.onAuthStateChanged((user) => {
     myName = user.displayName || 'Anonymous';
     myPhoto_url = user.photoURL || '';
     // name display removed from sidebar
-    // Blur login out, then show shell
-    loginScreen.classList.add('blur-out');
+    // Blur whole page → swap → unblur
+    if (pageBlur) pageBlur.classList.add('active');
     setTimeout(() => {
       loginScreen.classList.remove('active');
-      loginScreen.classList.remove('blur-out');
       appShell.classList.remove('shell-hidden');
       showView('waiting');
-    }, 350);
+      setTimeout(() => {
+        if (pageBlur) pageBlur.classList.remove('active');
+      }, 100);
+    }, 600);
     socket.emit('join', { name: myName, photo: myPhoto_url, uid: currentUser ? currentUser.uid : '' });
   } else {
     currentUser = null;
