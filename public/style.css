@@ -185,6 +185,7 @@ body {
   align-items: center;
   justify-content: center;
   overflow: hidden;
+  background: var(--bg-primary);
 }
 
 #spline-bg {
@@ -196,7 +197,8 @@ body {
   border: none;
   pointer-events: none;
   clip-path: inset(0 0 80px 0);
-  filter: saturate(0.3) brightness(0.95);
+  filter: saturate(0.25) brightness(0.95);
+  opacity: 0.5;
 }
 
 #login-content {
@@ -217,8 +219,8 @@ body {
   width: 180px;
   height: 180px;
   border-radius: 50%;
-  backdrop-filter: blur(5px);
-  -webkit-backdrop-filter: blur(5px);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
   pointer-events: none;
   transform: translate(-50%, -50%);
   z-index: 2;
@@ -317,8 +319,8 @@ body {
   width: 180px;
   height: 180px;
   border-radius: 50%;
-  backdrop-filter: blur(5px);
-  -webkit-backdrop-filter: blur(5px);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
   pointer-events: none;
   transform: translate(-50%, -50%);
   z-index: 9998;
