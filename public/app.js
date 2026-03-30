@@ -186,29 +186,16 @@ auth.onAuthStateChanged((user) => {
     myName = user.displayName || 'Anonymous';
     myPhoto_url = user.photoURL || '';
     sidebarName.textContent = myName.toLowerCase();
-    // Fade login out, then show shell
-    loginScreen.style.opacity = '0';
-    setTimeout(() => {
-      loginScreen.classList.remove('active');
-      loginScreen.style.opacity = '';
-      appShell.classList.remove('hidden');
-      // Double rAF so browser registers display change before animating
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          appShell.style.opacity = '1';
-        });
-      });
-    }, 600);
+    // Fade: login out, shell in
+    loginScreen.classList.remove('active');
+    appShell.classList.remove('shell-hidden');
     showView('waiting');
     socket.emit('join', { name: myName, photo: myPhoto_url });
   } else {
     currentUser = null;
     myName = '';
-    appShell.style.opacity = '0';
-    setTimeout(() => {
-      appShell.classList.add('hidden');
-      loginScreen.classList.add('active');
-    }, 600);
+    appShell.classList.add('shell-hidden');
+    loginScreen.classList.add('active');
   }
 });
 

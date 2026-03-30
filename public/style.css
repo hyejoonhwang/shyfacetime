@@ -82,6 +82,11 @@ body {
 
 .hidden { display: none !important; }
 
+.shell-hidden {
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
 /* ============================================
    BUTTONS
    ============================================ */
@@ -289,7 +294,7 @@ body {
 #app-shell {
   position: fixed;
   inset: 0;
-  opacity: 0;
+  opacity: 1;
   transition: opacity 0.6s ease;
   display: grid;
   grid-template-columns: var(--sidebar-w) 1fr;
