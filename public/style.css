@@ -92,6 +92,12 @@ body {
   box-shadow: var(--shadow-sm);
 }
 
+.btn:active {
+  filter: blur(2px);
+  transform: scale(0.97);
+  transition: filter 0.15s, transform 0.15s;
+}
+
 .btn-brand {
   background: var(--brand);
   color: var(--text-on-brand);
@@ -138,6 +144,10 @@ body {
 .btn-control:hover {
   background: rgba(255,255,255,0.8);
   box-shadow: var(--shadow-md);
+}
+.btn-control:active {
+  filter: blur(2px);
+  transform: scale(0.93);
 }
 .btn-control-danger {
   background: var(--danger);
@@ -354,6 +364,9 @@ body {
   color: var(--text-primary);
   font-weight: 600;
 }
+.nav-item:active {
+  filter: blur(2px);
+}
 
 .nav-icon { width: 20px; height: 20px; flex-shrink: 0; }
 
@@ -500,6 +513,10 @@ body {
   border-color: var(--border-hover);
   box-shadow: var(--shadow-md);
   transform: translateY(-2px);
+}
+.user-card:active {
+  filter: blur(2px);
+  transform: scale(0.97);
 }
 
 .user-card .user-name {
