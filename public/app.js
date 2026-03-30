@@ -207,30 +207,89 @@ socket.on('connect', () => {
 // 2. WAITING ROOM
 // ============================================================
 
+let currentTab = 'nearby';
+let familiarFaces = [];
+
 socket.on('waiting-list', (list) => {
   userListCache = list;
-  renderUserGrid(list);
+  renderWaitingRoom();
 });
 
-function renderUserGrid(list) {
-  const others = list.filter(u => u.id !== mySocketId);
+// Search
+const waitingSearch = document.getElementById('waiting-search');
+if (waitingSearch) waitingSearch.addEventListener('input', () => renderWaitingRoom());
+
+// Tabs
+document.querySelectorAll('.waiting-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.waiting-tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    currentTab = tab.dataset.tab;
+    if (currentTab === 'familiar' && currentUser) socket.emit('get-history', currentUser.uid);
+    renderWaitingRoom();
+  });
+});
+
+// Receive familiar faces data
+socket.on('history-data', (data) => {
+  if (data.connections) {
+    familiarFaces = data.connections.map(c => {
+      const otherUid = c.user_a_uid === (currentUser ? currentUser.uid : '') ? c.user_b_uid : c.user_a_uid;
+      return { uid: otherUid, totalCalls: c.total_calls, lastCallAt: c.last_call_at };
+    });
+  }
+  if (data.history) renderEchoes(data.history);
+  renderWaitingRoom();
+});
+
+function renderWaitingRoom() {
+  const others = userListCache.filter(u => u.id !== mySocketId);
   const grid = document.getElementById('user-grid');
   const empty = document.getElementById('waiting-empty');
+  if (!grid) return;
+
+  const query = (waitingSearch ? waitingSearch.value : '').toLowerCase().trim();
+  let filtered = others;
+
+  if (query) filtered = filtered.filter(u => u.name.toLowerCase().includes(query));
+
+  if (currentTab === 'familiar') {
+    const familiarUids = new Set(familiarFaces.map(f => f.uid));
+    filtered = filtered.filter(u => familiarUids.has(u.uid));
+  }
+
   grid.innerHTML = '';
 
-  if (others.length === 0) {
+  if (filtered.length === 0) {
     empty.style.display = 'flex';
+    const lg = empty.querySelector('.empty-text-lg');
+    const sm = empty.querySelector('.empty-text-sm');
+    if (currentTab === 'familiar' && others.length > 0) {
+      lg.textContent = 'no familiar faces online';
+      sm.textContent = 'call someone new to add them here';
+    } else if (query) {
+      lg.textContent = 'no one found';
+      sm.textContent = '';
+    } else {
+      lg.textContent = "it's quiet right now";
+      sm.textContent = 'you have the room to yourself';
+    }
     return;
   }
   empty.style.display = 'none';
 
-  others.forEach(user => {
+  filtered.forEach(user => {
     const card = document.createElement('div');
     card.className = 'user-card';
     const statusText = user.status || 'online';
+    const arrivedAgo = user.joinedAt ? formatTimeAgo(user.joinedAt) : '';
+    const familiar = familiarFaces.find(f => f.uid === user.uid);
+
     card.innerHTML = `
       <span class="user-name">${escapeHtml(user.name)}</span>
       <span class="user-status">${escapeHtml(statusText)}</span>
+      ${arrivedAgo ? `<span class="user-arrived">arrived ${arrivedAgo}</span>` : ''}
+      ${familiar ? `<span class="familiar-badge">${familiar.totalCalls} past call${familiar.totalCalls > 1 ? 's' : ''}</span>` : ''}
       <button class="btn btn-brand btn-sm" onclick="requestCall('${user.id}')">call</button>
     `;
     grid.appendChild(card);
