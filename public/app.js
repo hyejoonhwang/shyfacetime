@@ -63,12 +63,21 @@ document.addEventListener('DOMContentLoaded', () => {
   if (window.lucide) lucide.createIcons();
 });
 
-// --- Blur lens on landing page ---
+// --- Blur lens — follows mouse on landing page and shell ---
 const blurLens = document.getElementById('blur-lens');
+const blurLensShell = document.getElementById('blur-lens-shell');
+
 if (blurLens) {
   document.getElementById('login-screen').addEventListener('mousemove', (e) => {
     blurLens.style.left = e.clientX + 'px';
     blurLens.style.top = e.clientY + 'px';
+  });
+}
+
+if (blurLensShell) {
+  document.addEventListener('mousemove', (e) => {
+    blurLensShell.style.left = e.clientX + 'px';
+    blurLensShell.style.top = e.clientY + 'px';
   });
 }
 

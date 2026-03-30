@@ -266,6 +266,42 @@ body {
   width: 100vw;
   height: 100vh;
   overflow: hidden;
+  position: relative;
+}
+
+/* Spline bg behind entire shell */
+#spline-bg-shell {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%;
+  height: calc(100% + 80px);
+  z-index: 0;
+  border: none;
+  pointer-events: none;
+  clip-path: inset(0 0 80px 0);
+  filter: saturate(0.2) brightness(0.95);
+  opacity: 0.3;
+}
+
+/* Blur lens for shell pages */
+#blur-lens-shell {
+  position: fixed;
+  width: 180px;
+  height: 180px;
+  border-radius: 50%;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  z-index: 9998;
+  opacity: 0;
+  transition: opacity 0.3s;
+  mask-image: radial-gradient(circle, rgba(0,0,0,1) 20%, rgba(0,0,0,0) 70%);
+  -webkit-mask-image: radial-gradient(circle, rgba(0,0,0,1) 20%, rgba(0,0,0,0) 70%);
+}
+
+#app-shell:hover #blur-lens-shell {
+  opacity: 1;
 }
 
 #app-shell.sidebar-collapsed {
@@ -277,7 +313,9 @@ body {
   grid-area: sidebar;
   background: var(--bg-glass);
   backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
   border-right: 1px solid var(--border);
+  z-index: 2;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
@@ -343,7 +381,9 @@ body {
   grid-area: topbar;
   background: var(--bg-glass);
   backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
   border-bottom: 1px solid var(--border);
+  z-index: 2;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -368,6 +408,8 @@ body {
   grid-area: content;
   overflow: hidden;
   position: relative;
+  z-index: 1;
+  background: rgba(246, 244, 239, 0.85);
 }
 
 /* ============================================
