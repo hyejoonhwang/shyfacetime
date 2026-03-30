@@ -189,7 +189,7 @@ auth.onAuthStateChanged((user) => {
     loginScreen.classList.remove('active');
     appShell.classList.remove('shell-hidden');
     showView('waiting');
-    socket.emit('join', { name: myName, photo: myPhoto_url });
+    socket.emit('join', { name: myName, photo: myPhoto_url, uid: currentUser ? currentUser.uid : '' });
   } else {
     currentUser = null;
     myName = '';
@@ -200,7 +200,7 @@ auth.onAuthStateChanged((user) => {
 
 socket.on('connect', () => {
   mySocketId = socket.id;
-  if (currentUser) socket.emit('join', { name: myName, photo: myPhoto_url });
+  if (currentUser) socket.emit('join', { name: myName, photo: myPhoto_url, uid: currentUser ? currentUser.uid : '' });
 });
 
 // ============================================================
@@ -358,14 +358,14 @@ speakerBtn.addEventListener('click', () => speakerBtn.classList.toggle('active')
 socket.on('partner-hung-up', () => {
   cleanUpCall();
   showView('waiting');
-  socket.emit('join', { name: myName, photo: myPhoto_url });
+  socket.emit('join', { name: myName, photo: myPhoto_url, uid: currentUser ? currentUser.uid : '' });
 });
 
 function hangUp() {
   socket.emit('hang-up');
   cleanUpCall();
   showView('waiting');
-  socket.emit('join', { name: myName, photo: myPhoto_url });
+  socket.emit('join', { name: myName, photo: myPhoto_url, uid: currentUser ? currentUser.uid : '' });
 }
 
 function cleanUpCall() {
@@ -609,6 +609,74 @@ function startP5(remoteVideoEl) {
 function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
 
 // ============================================================
+// 9. ECHOES (call history)
+// ============================================================
+
+socket.on('history-data', (data) => {
+  renderEchoes(data.history || []);
+});
+
+function loadEchoes() {
+  if (currentUser) {
+    socket.emit('get-history', currentUser.uid);
+  }
+}
+
+function renderEchoes(history) {
+  const list = document.getElementById('echoes-list');
+  const empty = document.getElementById('echoes-empty');
+  if (!list) return;
+  list.innerHTML = '';
+
+  if (history.length === 0) {
+    if (empty) empty.style.display = 'flex';
+    return;
+  }
+  if (empty) empty.style.display = 'none';
+
+  history.forEach(call => {
+    const isCaller = currentUser && call.caller_uid === currentUser.uid;
+    const otherName = isCaller ? call.callee_name : call.caller_name;
+    const isMissed = call.was_missed === 1;
+
+    const item = document.createElement('div');
+    item.className = 'echo-item' + (isMissed ? ' echo-missed' : '');
+
+    let detail;
+    if (isMissed) {
+      detail = isCaller ? 'you reached out' : `${otherName.split(' ')[0]} reached out`;
+    } else if (call.duration_seconds) {
+      const mins = Math.floor(call.duration_seconds / 60);
+      const secs = call.duration_seconds % 60;
+      detail = mins > 0 ? `talked for ${mins}m ${secs}s` : `talked for ${secs}s`;
+    } else {
+      detail = 'connected';
+    }
+
+    item.innerHTML = `
+      <div class="echo-left">
+        <span class="echo-name">${escapeHtml(otherName)}</span>
+        <span class="echo-detail">${detail}</span>
+      </div>
+      <span class="echo-time">${formatTimeAgo(call.started_at)}</span>
+    `;
+    list.appendChild(item);
+  });
+}
+
+function formatTimeAgo(timestamp) {
+  const diff = Date.now() - timestamp;
+  const mins = Math.floor(diff / 60000);
+  const hours = Math.floor(diff / 3600000);
+  const days = Math.floor(diff / 86400000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  if (hours < 24) return `${hours}h ago`;
+  if (days < 7) return `${days}d ago`;
+  return new Date(timestamp).toLocaleDateString();
+}
+
+// ============================================================
 // 8. THE MIRROR (pre-call setup)
 // ============================================================
 
@@ -760,9 +828,7 @@ showView = function(viewId) {
     stopMirror();
   }
   origShowView(viewId);
-  // Start mirror when entering
-  if (viewId === 'mirror') {
-    startMirror();
-  }
+  if (viewId === 'mirror') startMirror();
+  if (viewId === 'echoes') loadEchoes();
 };
 function escapeAttr(s) { return s.replace(/&/g, '&amp;').replace(/"/g, '&quot;'); }

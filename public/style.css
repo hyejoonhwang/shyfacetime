@@ -742,12 +742,70 @@ body {
 }
 
 /* ============================================
-   ECHOES PLACEHOLDER
+   ECHOES
    ============================================ */
 
 #view-echoes {
+  overflow: hidden;
+}
+
+.echoes-layout {
+  width: 100%;
+  height: 100%;
+  overflow-y: auto;
+  padding: 24px;
+  scrollbar-width: none;
+}
+.echoes-layout::-webkit-scrollbar { display: none; }
+
+#echoes-list {
+  max-width: 500px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.echo-item {
+  display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-radius: var(--radius-sm);
+  transition: background 0.2s;
+}
+
+.echo-item:hover {
+  background: rgba(0,0,0,0.02);
+}
+
+.echo-left {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.echo-name {
+  font-size: 15px;
+  font-weight: 400;
+  color: var(--text-primary);
+}
+
+.echo-detail {
+  font-size: 12px;
+  font-weight: 300;
+  color: var(--text-ghost);
+}
+
+.echo-missed .echo-name {
+  color: var(--danger);
+}
+
+.echo-time {
+  font-size: 12px;
+  font-weight: 300;
+  color: var(--text-ghost);
+  flex-shrink: 0;
 }
 
 /* ============================================

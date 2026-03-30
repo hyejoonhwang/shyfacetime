@@ -2,6 +2,7 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const crypto = require('crypto');
+const db = require('./database');
 
 const app = express();
 const server = http.createServer(app);
@@ -18,8 +19,9 @@ app.use(express.static('public', {
 }));
 
 // Track connected users
-const waitingUsers = new Map(); // socketId -> { name, photo }
+const waitingUsers = new Map(); // socketId -> { name, photo, status, joinedAt, uid }
 const activeCalls = new Map();  // socketId -> partnerSocketId
+const activeCallIds = new Map(); // socketId -> database call row ID
 
 io.on('connection', (socket) => {
   console.log('Connected:', socket.id);
@@ -29,6 +31,7 @@ io.on('connection', (socket) => {
     waitingUsers.set(socket.id, {
       name: data.name || 'Anonymous',
       photo: data.photo || '',
+      uid: data.uid || socket.id,
       status: '',
       joinedAt: Date.now()
     });
@@ -62,6 +65,10 @@ io.on('connection', (socket) => {
     const caller = io.sockets.sockets.get(callerId);
     if (!caller) return;
 
+    // Get user info before removing from waiting room
+    const callerInfo = waitingUsers.get(callerId) || { name: 'Unknown', uid: callerId };
+    const calleeInfo = waitingUsers.get(socket.id) || { name: 'Unknown', uid: socket.id };
+
     // Remove both from waiting room
     waitingUsers.delete(socket.id);
     waitingUsers.delete(callerId);
@@ -70,10 +77,16 @@ io.on('connection', (socket) => {
     activeCalls.set(socket.id, callerId);
     activeCalls.set(callerId, socket.id);
 
+    // Record call in database
+    try {
+      const callId = db.recordCallStart(callerInfo.uid, callerInfo.name, calleeInfo.uid, calleeInfo.name);
+      activeCallIds.set(socket.id, callId);
+      activeCallIds.set(callerId, callId);
+    } catch (e) { console.error('DB call start error:', e.message); }
+
     // Generate a unique room name for p5LiveMedia
     const roomName = 'shy-' + crypto.randomBytes(8).toString('hex');
 
-    // Send room name to both users
     caller.emit('call-started', { partnerId: socket.id, room: roomName });
     socket.emit('call-started', { partnerId: callerId, room: roomName });
 
@@ -84,6 +97,12 @@ io.on('connection', (socket) => {
   socket.on('call-decline', (callerId) => {
     const caller = io.sockets.sockets.get(callerId);
     if (caller) caller.emit('call-declined');
+    // Record as missed call
+    try {
+      const callerInfo = waitingUsers.get(callerId) || { uid: callerId, name: 'Unknown' };
+      const calleeInfo = waitingUsers.get(socket.id) || { uid: socket.id, name: 'Unknown' };
+      db.recordMissedCall(callerInfo.uid, callerInfo.name, calleeInfo.uid, calleeInfo.name);
+    } catch (e) { console.error('DB missed call error:', e.message); }
   });
 
   // ---- p5LiveMedia signaling protocol ----
@@ -127,6 +146,15 @@ io.on('connection', (socket) => {
     }
   });
 
+  // Fetch call history
+  socket.on('get-history', (uid) => {
+    try {
+      const history = db.getHistory(uid);
+      const connections = db.getConnections(uid);
+      socket.emit('history-data', { history, connections });
+    } catch (e) { console.error('DB history error:', e.message); }
+  });
+
   // User hangs up
   socket.on('hang-up', () => {
     handleHangUp(socket);
@@ -160,6 +188,20 @@ function handleHangUp(socket) {
   if (partnerId) {
     const partner = io.sockets.sockets.get(partnerId);
     if (partner) partner.emit('partner-hung-up');
+
+    // Record call end in database
+    const callId = activeCallIds.get(socket.id);
+    if (callId) {
+      try {
+        db.recordCallEnd(callId);
+        // Record connection between users
+        const callerInfo = waitingUsers.get(socket.id) || { uid: socket.id };
+        const partnerInfo = waitingUsers.get(partnerId) || { uid: partnerId };
+        db.recordConnection(callerInfo.uid || socket.id, partnerInfo.uid || partnerId);
+      } catch (e) { console.error('DB call end error:', e.message); }
+    }
+    activeCallIds.delete(partnerId);
+    activeCallIds.delete(socket.id);
     activeCalls.delete(partnerId);
   }
   activeCalls.delete(socket.id);
