@@ -600,6 +600,7 @@ body {
   flex-direction: column;
   align-items: center;
   scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
 }
 .waiting-content::-webkit-scrollbar { display: none; }
 
@@ -960,6 +961,7 @@ body {
   overflow-y: auto;
   padding: 24px;
   scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
 }
 .echoes-layout::-webkit-scrollbar { display: none; }
 
@@ -1199,8 +1201,9 @@ body {
   /* Hide logo in sidebar on mobile (it's in the topbar) */
   #sidebar .sidebar-logo { display: none; }
 
-  /* All views: no scroll */
-  .view, #content, .waiting-content, .echoes-layout, .mirror-layout { overflow: hidden; }
+  /* No scroll except waiting room and echoes lists */
+  .view, #content, .mirror-layout { overflow: hidden; }
+  .waiting-content, .echoes-layout { overflow-y: auto; }
 
   /* Call page */
   #call-videos {
