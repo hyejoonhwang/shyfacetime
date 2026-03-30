@@ -390,6 +390,32 @@ body {
   padding: 0 24px;
 }
 
+.topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.hamburger {
+  display: none;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  color: var(--text-secondary);
+}
+
+.hamburger-icon { width: 22px; height: 22px; }
+
+/* Sidebar overlay (for mobile) */
+.sidebar-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.2);
+  z-index: 99;
+}
+
 #topbar-context {
   font-size: 14px;
   font-weight: 400;
@@ -696,35 +722,60 @@ body {
   #app-shell.sidebar-collapsed {
     grid-template-columns: 1fr;
   }
-  #sidebar { display: none; }
 
+  /* Hamburger visible on mobile */
+  .hamburger { display: block; }
+
+  /* Sidebar: hidden by default, slides in as overlay */
+  #sidebar {
+    position: fixed;
+    top: 0; left: 0;
+    width: var(--sidebar-w);
+    height: 100vh;
+    z-index: 100;
+    transform: translateX(-100%);
+    transition: transform 0.25s ease;
+  }
+  #sidebar.open {
+    transform: translateX(0);
+  }
+  .sidebar-overlay.open {
+    display: block;
+  }
+  .sidebar-collapsed .nav-label { display: inline; }
+
+  /* All views: no scroll */
+  .view, #content { overflow: hidden; }
+
+  /* Call page */
   #call-videos {
     flex-direction: column;
     gap: 10px;
   }
-
   .video-frame {
     width: 85vw;
     max-width: none;
     aspect-ratio: 16/9;
   }
-
-  #call-layout {
-    gap: 14px;
-  }
-
-  #call-controls {
-    padding: 8px 20px;
-    gap: 12px;
-  }
-
+  #call-layout { gap: 14px; }
+  #call-controls { padding: 8px 20px; gap: 12px; }
   .btn-control { width: 42px; height: 42px; }
   .btn-control-danger { width: 48px; height: 48px; }
   .control-icon { width: 18px; height: 18px; }
 
+  /* Landing */
   #login-content { padding-top: 4vh; }
 
+  /* Connecting */
   .connecting-profiles { gap: 24px; }
   .connecting-name-circle { width: 72px; height: 72px; }
   .connecting-name-circle span { font-size: 14px; }
+
+  /* Waiting room */
+  #view-waiting { padding: 20px 16px; }
+  #user-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; }
+  .user-card { padding: 16px 12px; }
+
+  /* Hide blur lens on mobile (touch has no hover) */
+  #blur-lens, #blur-lens-shell { display: none; }
 }
