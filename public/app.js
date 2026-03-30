@@ -186,17 +186,19 @@ auth.onAuthStateChanged((user) => {
     myName = user.displayName || 'Anonymous';
     myPhoto_url = user.photoURL || '';
     sidebarName.textContent = myName.toLowerCase();
-    // Fade: login out, shell in
+    // Fade login out, then show shell
     loginScreen.style.opacity = '0';
-    loginScreen.style.pointerEvents = 'none';
     setTimeout(() => {
       loginScreen.classList.remove('active');
       loginScreen.style.opacity = '';
-      loginScreen.style.pointerEvents = '';
       appShell.classList.remove('hidden');
-      // Trigger fade-in on next frame
-      requestAnimationFrame(() => { appShell.style.opacity = '1'; });
-    }, 500);
+      // Double rAF so browser registers display change before animating
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          appShell.style.opacity = '1';
+        });
+      });
+    }, 600);
     showView('waiting');
     socket.emit('join', { name: myName, photo: myPhoto_url });
   } else {
@@ -205,9 +207,8 @@ auth.onAuthStateChanged((user) => {
     appShell.style.opacity = '0';
     setTimeout(() => {
       appShell.classList.add('hidden');
-      appShell.style.opacity = '';
       loginScreen.classList.add('active');
-    }, 500);
+    }, 600);
   }
 });
 
