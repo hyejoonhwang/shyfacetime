@@ -63,6 +63,15 @@ document.addEventListener('DOMContentLoaded', () => {
   if (window.lucide) lucide.createIcons();
 });
 
+// --- Blur lens on landing page ---
+const blurLens = document.getElementById('blur-lens');
+if (blurLens) {
+  document.getElementById('login-screen').addEventListener('mousemove', (e) => {
+    blurLens.style.left = e.clientX + 'px';
+    blurLens.style.top = e.clientY + 'px';
+  });
+}
+
 // --- Clock ---
 function updateClock() {
   const now = new Date();

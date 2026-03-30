@@ -185,22 +185,25 @@ body {
   max-height: 100vh;
 }
 
-/* Landing page hover blur — everything blurs when hovered */
-#login-content h1:hover,
-#login-content .hook:hover,
-#login-content .story p:hover,
-#login-content .explanation p:hover,
-#login-content .btn:hover {
-  filter: blur(3px);
-  transition: filter 0.3s ease;
+/* Blur lens — follows mouse cursor on landing page */
+#blur-lens {
+  position: fixed;
+  width: 180px;
+  height: 180px;
+  border-radius: 50%;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  z-index: 2;
+  opacity: 0;
+  transition: opacity 0.3s;
+  mask-image: radial-gradient(circle, rgba(0,0,0,1) 20%, rgba(0,0,0,0) 70%);
+  -webkit-mask-image: radial-gradient(circle, rgba(0,0,0,1) 20%, rgba(0,0,0,0) 70%);
 }
 
-#login-content h1,
-#login-content .hook,
-#login-content .story p,
-#login-content .explanation p {
-  transition: filter 0.4s ease;
-  cursor: default;
+#login-screen:hover #blur-lens {
+  opacity: 1;
 }
 
 #login-screen h1 {
