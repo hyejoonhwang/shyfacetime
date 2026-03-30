@@ -108,9 +108,47 @@
 
       <!-- VIEW: Mirror (placeholder) -->
       <div id="view-mirror" class="view">
-        <div class="view-empty">
-          <p class="empty-text-lg">the mirror</p>
-          <p class="empty-text-sm">check yourself before entering a call</p>
+        <div class="mirror-layout">
+          <div class="mirror-preview">
+            <video id="mirror-video" autoplay muted playsinline></video>
+            <div id="mirror-no-camera" class="mirror-placeholder">
+              <i data-lucide="camera-off" class="mirror-placeholder-icon"></i>
+              <p>camera is off</p>
+            </div>
+          </div>
+
+          <div class="mirror-controls">
+            <div class="mirror-section">
+              <label class="mirror-label">your vibe</label>
+              <input id="mirror-status" type="text" class="mirror-input" placeholder="listening to rain..." maxlength="50">
+            </div>
+
+            <div class="mirror-section">
+              <label class="mirror-label">camera</label>
+              <select id="mirror-camera" class="mirror-select">
+                <option value="">loading devices...</option>
+              </select>
+            </div>
+
+            <div class="mirror-section">
+              <label class="mirror-label">microphone</label>
+              <select id="mirror-mic" class="mirror-select">
+                <option value="">loading devices...</option>
+              </select>
+            </div>
+
+            <div class="mirror-section">
+              <label class="mirror-label">preview</label>
+              <div class="mirror-toggles">
+                <button id="mirror-cam-toggle" class="btn btn-sm mirror-toggle-active">
+                  <i data-lucide="video" class="toggle-icon"></i> camera on
+                </button>
+                <button id="mirror-mic-toggle" class="btn btn-sm mirror-toggle-active">
+                  <i data-lucide="mic" class="toggle-icon"></i> mic on
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -183,6 +221,6 @@
   <script src="https://p5livemedia.itp.io/simplepeer.min.js"></script>
   <script src="p5livemedia.js"></script>
   <script src="https://unpkg.com/ml5@1/dist/ml5.min.js"></script>
-  <script src="app.js?v=20260330c"></script>
+  <script src="app.js?v=20260330d"></script>
 </body>
 </html>

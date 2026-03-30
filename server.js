@@ -26,8 +26,22 @@ io.on('connection', (socket) => {
 
   // User joins the waiting room
   socket.on('join', (data) => {
-    waitingUsers.set(socket.id, { name: data.name || 'Anonymous', photo: data.photo || '' });
+    waitingUsers.set(socket.id, {
+      name: data.name || 'Anonymous',
+      photo: data.photo || '',
+      status: '',
+      joinedAt: Date.now()
+    });
     broadcastWaitingList();
+  });
+
+  // User updates their vibe status
+  socket.on('set-status', (status) => {
+    const user = waitingUsers.get(socket.id);
+    if (user) {
+      user.status = (status || '').slice(0, 50);
+      broadcastWaitingList();
+    }
   });
 
   // User requests a call with another user
@@ -154,7 +168,7 @@ function handleHangUp(socket) {
 function broadcastWaitingList() {
   const list = [];
   for (const [id, info] of waitingUsers) {
-    list.push({ id, name: info.name, photo: info.photo });
+    list.push({ id, name: info.name, photo: info.photo, status: info.status || '', joinedAt: info.joinedAt });
   }
   io.emit('waiting-list', list);
 }

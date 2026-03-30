@@ -742,12 +742,154 @@ body {
 }
 
 /* ============================================
-   ECHOES / MIRROR PLACEHOLDERS
+   ECHOES PLACEHOLDER
    ============================================ */
 
-#view-echoes, #view-mirror {
+#view-echoes {
   align-items: center;
   justify-content: center;
+}
+
+/* ============================================
+   THE MIRROR
+   ============================================ */
+
+#view-mirror {
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.mirror-layout {
+  display: flex;
+  gap: 32px;
+  align-items: center;
+  max-width: 800px;
+  width: 100%;
+  padding: 24px;
+}
+
+.mirror-preview {
+  position: relative;
+  width: 320px;
+  aspect-ratio: 4/3;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-md);
+  flex-shrink: 0;
+}
+
+.mirror-preview video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scaleX(-1);
+}
+
+.mirror-placeholder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: var(--text-ghost);
+}
+
+.mirror-placeholder-icon { width: 32px; height: 32px; }
+
+.mirror-placeholder p { font-size: 13px; font-weight: 300; }
+
+.mirror-placeholder.hidden { display: none; }
+
+.mirror-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  flex: 1;
+  min-width: 0;
+}
+
+.mirror-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.mirror-label {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--text-ghost);
+  letter-spacing: 0.04em;
+}
+
+.mirror-input {
+  font-family: var(--font);
+  font-size: 15px;
+  font-weight: 300;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-card);
+  color: var(--text-primary);
+  outline: none;
+  transition: border-color 0.3s;
+}
+
+.mirror-input:focus {
+  border-color: var(--brand);
+}
+
+.mirror-input::placeholder {
+  color: var(--text-ghost);
+  font-weight: 300;
+}
+
+.mirror-select {
+  font-family: var(--font);
+  font-size: 14px;
+  font-weight: 300;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-card);
+  color: var(--text-primary);
+  outline: none;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23999' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 32px;
+}
+
+.mirror-toggles {
+  display: flex;
+  gap: 8px;
+}
+
+.mirror-toggle-active {
+  background: var(--brand);
+  color: white;
+  border-color: transparent;
+}
+
+.toggle-icon { width: 16px; height: 16px; }
+
+@media (max-width: 768px) {
+  .mirror-layout {
+    flex-direction: column;
+    padding: 16px;
+    gap: 20px;
+  }
+  .mirror-preview {
+    width: 100%;
+    max-width: 300px;
+  }
 }
 
 /* ============================================

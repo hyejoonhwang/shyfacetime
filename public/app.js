@@ -227,9 +227,10 @@ function renderUserGrid(list) {
   others.forEach(user => {
     const card = document.createElement('div');
     card.className = 'user-card';
+    const statusText = user.status || 'online';
     card.innerHTML = `
       <span class="user-name">${escapeHtml(user.name)}</span>
-      <span class="user-status">online</span>
+      <span class="user-status">${escapeHtml(statusText)}</span>
       <button class="btn btn-brand btn-sm" onclick="requestCall('${user.id}')">call</button>
     `;
     grid.appendChild(card);
@@ -606,4 +607,162 @@ function startP5(remoteVideoEl) {
 // ============================================================
 
 function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+// ============================================================
+// 8. THE MIRROR (pre-call setup)
+// ============================================================
+
+let mirrorStream = null;
+let mirrorCamOn = true;
+let mirrorMicOn = true;
+
+const mirrorVideo = document.getElementById('mirror-video');
+const mirrorNoCam = document.getElementById('mirror-no-camera');
+const mirrorCamSelect = document.getElementById('mirror-camera');
+const mirrorMicSelect = document.getElementById('mirror-mic');
+const mirrorCamToggle = document.getElementById('mirror-cam-toggle');
+const mirrorMicToggle = document.getElementById('mirror-mic-toggle');
+const mirrorStatusInput = document.getElementById('mirror-status');
+
+// Start mirror camera when navigating to the mirror view
+function startMirror() {
+  if (mirrorStream) return; // already running
+  navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+    .then(stream => {
+      mirrorStream = stream;
+      mirrorVideo.srcObject = stream;
+      mirrorNoCam.classList.add('hidden');
+      enumerateDevices();
+    })
+    .catch(err => {
+      console.error('Mirror camera error:', err);
+      mirrorNoCam.classList.remove('hidden');
+    });
+}
+
+function stopMirror() {
+  if (mirrorStream) {
+    mirrorStream.getTracks().forEach(t => t.stop());
+    mirrorStream = null;
+  }
+  if (mirrorVideo) mirrorVideo.srcObject = null;
+}
+
+async function enumerateDevices() {
+  try {
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    const cameras = devices.filter(d => d.kind === 'videoinput');
+    const mics = devices.filter(d => d.kind === 'audioinput');
+
+    mirrorCamSelect.innerHTML = '';
+    cameras.forEach((cam, i) => {
+      const opt = document.createElement('option');
+      opt.value = cam.deviceId;
+      opt.textContent = cam.label || `camera ${i + 1}`;
+      mirrorCamSelect.appendChild(opt);
+    });
+
+    mirrorMicSelect.innerHTML = '';
+    mics.forEach((mic, i) => {
+      const opt = document.createElement('option');
+      opt.value = mic.deviceId;
+      opt.textContent = mic.label || `microphone ${i + 1}`;
+      mirrorMicSelect.appendChild(opt);
+    });
+  } catch (err) {
+    console.error('Device enumeration error:', err);
+  }
+}
+
+// Switch camera
+if (mirrorCamSelect) {
+  mirrorCamSelect.addEventListener('change', async () => {
+    if (!mirrorStream) return;
+    stopMirror();
+    try {
+      mirrorStream = await navigator.mediaDevices.getUserMedia({
+        video: { deviceId: { exact: mirrorCamSelect.value } },
+        audio: mirrorMicSelect.value ? { deviceId: { exact: mirrorMicSelect.value } } : true
+      });
+      mirrorVideo.srcObject = mirrorStream;
+      mirrorNoCam.classList.add('hidden');
+    } catch (err) {
+      console.error('Camera switch error:', err);
+    }
+  });
+}
+
+// Switch mic
+if (mirrorMicSelect) {
+  mirrorMicSelect.addEventListener('change', async () => {
+    if (!mirrorStream) return;
+    stopMirror();
+    try {
+      mirrorStream = await navigator.mediaDevices.getUserMedia({
+        video: mirrorCamSelect.value ? { deviceId: { exact: mirrorCamSelect.value } } : true,
+        audio: { deviceId: { exact: mirrorMicSelect.value } }
+      });
+      mirrorVideo.srcObject = mirrorStream;
+    } catch (err) {
+      console.error('Mic switch error:', err);
+    }
+  });
+}
+
+// Camera toggle
+if (mirrorCamToggle) {
+  mirrorCamToggle.addEventListener('click', () => {
+    mirrorCamOn = !mirrorCamOn;
+    if (mirrorStream) {
+      mirrorStream.getVideoTracks().forEach(t => { t.enabled = mirrorCamOn; });
+    }
+    mirrorCamToggle.classList.toggle('mirror-toggle-active', mirrorCamOn);
+    mirrorCamToggle.innerHTML = mirrorCamOn
+      ? '<i data-lucide="video" class="toggle-icon"></i> camera on'
+      : '<i data-lucide="video-off" class="toggle-icon"></i> camera off';
+    mirrorNoCam.classList.toggle('hidden', mirrorCamOn);
+    if (window.lucide) lucide.createIcons();
+  });
+}
+
+// Mic toggle
+if (mirrorMicToggle) {
+  mirrorMicToggle.addEventListener('click', () => {
+    mirrorMicOn = !mirrorMicOn;
+    if (mirrorStream) {
+      mirrorStream.getAudioTracks().forEach(t => { t.enabled = mirrorMicOn; });
+    }
+    mirrorMicToggle.classList.toggle('mirror-toggle-active', mirrorMicOn);
+    mirrorMicToggle.innerHTML = mirrorMicOn
+      ? '<i data-lucide="mic" class="toggle-icon"></i> mic on'
+      : '<i data-lucide="mic-off" class="toggle-icon"></i> mic off';
+    if (window.lucide) lucide.createIcons();
+  });
+}
+
+// Vibe status — send to server on change
+if (mirrorStatusInput) {
+  let statusTimeout;
+  mirrorStatusInput.addEventListener('input', () => {
+    clearTimeout(statusTimeout);
+    statusTimeout = setTimeout(() => {
+      socket.emit('set-status', mirrorStatusInput.value.trim());
+    }, 500);
+  });
+}
+
+// Start/stop mirror when navigating to/from the view
+const origShowView = showView;
+showView = function(viewId) {
+  // Stop mirror when leaving
+  const currentActive = document.querySelector('.view.active');
+  if (currentActive && currentActive.id === 'view-mirror') {
+    stopMirror();
+  }
+  origShowView(viewId);
+  // Start mirror when entering
+  if (viewId === 'mirror') {
+    startMirror();
+  }
+};
 function escapeAttr(s) { return s.replace(/&/g, '&amp;').replace(/"/g, '&quot;'); }
