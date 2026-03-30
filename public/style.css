@@ -43,13 +43,17 @@ body {
   color: var(--text-primary);
   font-family: var(--font);
   font-weight: 300;
-  height: 100vh;
+  height: 100dvh;
+  height: 100vh; /* fallback */
   overflow: hidden;
+  position: fixed;
+  inset: 0;
 }
 
 .screen {
   display: none;
   width: 100vw;
+  height: 100dvh;
   height: 100vh;
   overflow: hidden;
   transition: filter 0.3s ease;
@@ -306,7 +310,10 @@ body {
 
 #app-shell {
   position: fixed;
-  inset: 0;
+  top: 0; left: 0;
+  width: 100vw;
+  height: 100dvh;
+  height: 100vh;
   display: grid;
   grid-template-columns: var(--sidebar-w) 1fr;
   grid-template-rows: var(--topbar-h) 1fr;
