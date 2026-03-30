@@ -140,11 +140,42 @@ setInterval(updateClock, 30000);
 // VIEW ROUTING
 // ============================================================
 
-function showView(viewId) {
-  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-  const view = document.getElementById('view-' + viewId);
-  if (view) view.classList.add('active');
+let isTransitioning = false;
 
+function showView(viewId) {
+  const content = document.getElementById('content');
+  const currentView = document.querySelector('.view.active');
+  const nextView = document.getElementById('view-' + viewId);
+
+  // Skip transition if same view or no content element
+  if (!content || (currentView && currentView.id === 'view-' + viewId)) return;
+
+  // Blur in → swap → blur out
+  if (!isTransitioning && currentView) {
+    isTransitioning = true;
+    content.classList.add('transitioning');
+
+    setTimeout(() => {
+      // Swap views while blurred
+      document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+      if (nextView) nextView.classList.add('active');
+      updateViewMeta(viewId);
+
+      // Blur out
+      setTimeout(() => {
+        content.classList.remove('transitioning');
+        isTransitioning = false;
+      }, 50);
+    }, 300);
+  } else {
+    // No transition (first load or already transitioning)
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+    if (nextView) nextView.classList.add('active');
+    updateViewMeta(viewId);
+  }
+}
+
+function updateViewMeta(viewId) {
   // Update nav active state
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   const navItem = document.querySelector(`.nav-item[data-view="${viewId}"]`);
@@ -206,9 +237,14 @@ auth.onAuthStateChanged((user) => {
     myName = user.displayName || 'Anonymous';
     myPhoto_url = user.photoURL || '';
     // name display removed from sidebar
-    loginScreen.classList.remove('active');
-    appShell.classList.remove('shell-hidden');
-    showView('waiting');
+    // Blur login out, then show shell
+    loginScreen.classList.add('blur-out');
+    setTimeout(() => {
+      loginScreen.classList.remove('active');
+      loginScreen.classList.remove('blur-out');
+      appShell.classList.remove('shell-hidden');
+      showView('waiting');
+    }, 350);
     socket.emit('join', { name: myName, photo: myPhoto_url, uid: currentUser ? currentUser.uid : '' });
   } else {
     currentUser = null;

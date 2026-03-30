@@ -52,12 +52,16 @@ body {
   width: 100vw;
   height: 100vh;
   overflow: hidden;
+  transition: filter 0.3s ease;
 }
 .screen.active {
   display: flex;
   position: fixed;
   inset: 0;
   z-index: 10;
+}
+.screen.blur-out {
+  filter: blur(12px);
 }
 
 .view {
@@ -504,6 +508,11 @@ body {
   z-index: 1;
   background: rgba(246, 244, 239, 0.5);
   isolation: isolate;
+  transition: filter 0.3s ease;
+}
+
+#content.transitioning {
+  filter: blur(12px);
 }
 
 /* ============================================
