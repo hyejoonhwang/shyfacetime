@@ -83,8 +83,9 @@ body {
   gap: 8px;
   background: var(--bg-card);
   color: var(--text-primary);
-  transition: all 0.2s ease;
+  transition: all 0.4s ease;
   text-transform: lowercase;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .btn:hover {
@@ -95,7 +96,7 @@ body {
 .btn:active {
   filter: blur(2px);
   transform: scale(0.97);
-  transition: filter 0.15s, transform 0.15s;
+  transition: filter 0.3s ease, transform 0.3s ease;
 }
 
 .btn-brand {
@@ -139,7 +140,8 @@ body {
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.4s ease;
+  -webkit-tap-highlight-color: transparent;
 }
 .btn-control:hover {
   background: rgba(255,255,255,0.8);
@@ -148,6 +150,7 @@ body {
 .btn-control:active {
   filter: blur(2px);
   transform: scale(0.93);
+  transition: filter 0.3s ease, transform 0.3s ease;
 }
 .btn-control-danger {
   background: var(--danger);
@@ -352,8 +355,9 @@ body {
   text-decoration: none;
   font-size: 14px;
   font-weight: 400;
-  transition: all 0.15s;
+  transition: all 0.4s ease;
   margin-bottom: 4px;
+  -webkit-tap-highlight-color: transparent;
 }
 .nav-item:hover {
   background: rgba(0,0,0,0.04);
@@ -366,6 +370,7 @@ body {
 }
 .nav-item:active {
   filter: blur(2px);
+  transition: filter 0.3s ease;
 }
 
 .nav-icon { width: 20px; height: 20px; flex-shrink: 0; }
@@ -504,9 +509,10 @@ body {
   flex-direction: column;
   align-items: center;
   gap: 10px;
-  transition: all 0.25s ease;
+  transition: all 0.4s ease;
   cursor: pointer;
   box-shadow: var(--shadow-sm);
+  -webkit-tap-highlight-color: transparent;
 }
 
 .user-card:hover {
@@ -517,6 +523,7 @@ body {
 .user-card:active {
   filter: blur(2px);
   transform: scale(0.97);
+  transition: filter 0.3s ease, transform 0.3s ease;
 }
 
 .user-card .user-name {
