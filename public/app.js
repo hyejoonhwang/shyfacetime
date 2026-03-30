@@ -186,7 +186,12 @@ document.querySelectorAll('.nav-item').forEach(item => {
 // ============================================================
 
 googleSigninBtn.addEventListener('click', () => {
-  auth.signInWithPopup(googleProvider).catch(err => console.error('Sign-in error:', err));
+  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+  if (isMobile) {
+    auth.signInWithRedirect(googleProvider);
+  } else {
+    auth.signInWithPopup(googleProvider).catch(err => console.error('Sign-in error:', err));
+  }
 });
 
 signoutBtn.addEventListener('click', () => auth.signOut());
