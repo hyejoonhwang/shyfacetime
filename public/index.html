@@ -55,7 +55,7 @@
     <!-- Sidebar -->
     <nav id="sidebar">
       <div class="sidebar-top">
-        <div class="sidebar-logo"><i data-lucide="heart" class="sidebar-logo-icon"></i></div>
+        <a class="sidebar-logo" href="#" id="logo-link"><i data-lucide="heart" class="sidebar-logo-icon"></i></a>
         <a class="nav-item active" data-view="waiting" href="#">
           <i data-lucide="home" class="nav-icon"></i>
           <span class="nav-label">the room</span>
@@ -106,6 +106,30 @@
             <p class="empty-text-sm">you have the room to yourself</p>
           </div>
           <div id="user-grid"></div>
+        </div>
+      </div>
+
+      <!-- VIEW: About -->
+      <div id="view-about" class="view">
+        <div class="about-layout">
+          <h1 class="about-title">ShyFaceTime</h1>
+          <p class="about-hook">what if you could only see someone when you looked away?</p>
+
+          <div class="about-story">
+            <p>uncomfortable putting your face on camera?</p>
+            <p>don't want to show your face, but turning the camera off feels rude?</p>
+            <p>ever been too shy to look your crush in the eyes — so you could only catch them with your side eye?</p>
+            <p class="about-cta">this is for you.</p>
+          </div>
+
+          <div class="about-explanation">
+            <p class="about-aside">how it works</p>
+            <p>when they look at the screen to see you — you're blurred.</p>
+            <p>when they look away — you come into focus.</p>
+            <p>they'll never be able to see you clearly. and you'll never see them clearly either.</p>
+          </div>
+
+          <button class="btn btn-brand" onclick="showView('waiting')">enter the room</button>
         </div>
       </div>
 
@@ -235,6 +259,6 @@
   <script src="https://p5livemedia.itp.io/simplepeer.min.js"></script>
   <script src="p5livemedia.js"></script>
   <script src="https://unpkg.com/ml5@1/dist/ml5.min.js"></script>
-  <script src="app.js?v=20260330f"></script>
+  <script src="app.js?v=20260330g"></script>
 </body>
 </html>

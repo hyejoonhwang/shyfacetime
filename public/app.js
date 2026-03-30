@@ -151,7 +151,7 @@ function showView(viewId) {
   if (navItem) navItem.classList.add('active');
 
   // Update topbar context
-  const labels = { waiting: 'the room', echoes: 'echoes', mirror: 'the mirror', connecting: 'connecting...', call: `in a call with ${partnerName}` };
+  const labels = { about: 'shyfacetime', waiting: 'the room', echoes: 'echoes', mirror: 'the mirror', connecting: 'connecting...', call: `in a call with ${partnerName}` };
   topbarContext.textContent = labels[viewId] || '';
 
   // Collapse sidebar during call
@@ -166,9 +166,18 @@ function showView(viewId) {
 document.querySelectorAll('.nav-item').forEach(item => {
   item.addEventListener('click', (e) => {
     e.preventDefault();
-    showView(item.dataset.view);
+    if (item.dataset.view) showView(item.dataset.view);
   });
 });
+
+// Logo click → about page
+const logoLink = document.getElementById('logo-link');
+if (logoLink) {
+  logoLink.addEventListener('click', (e) => {
+    e.preventDefault();
+    showView('about');
+  });
+}
 
 // ============================================================
 // 1. FIREBASE AUTH
