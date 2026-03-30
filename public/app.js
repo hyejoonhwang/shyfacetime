@@ -185,13 +185,17 @@ document.querySelectorAll('.nav-item').forEach(item => {
 // 1. FIREBASE AUTH
 // ============================================================
 
+// Handle redirect result on page load (for mobile sign-in)
+auth.getRedirectResult().catch(err => {
+  if (err.code !== 'auth/no-auth-event') console.error('Redirect result error:', err);
+});
+
 googleSigninBtn.addEventListener('click', () => {
-  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-  if (isMobile) {
+  // Try popup first, fall back to redirect if blocked
+  auth.signInWithPopup(googleProvider).catch(err => {
+    console.log('Popup failed, using redirect:', err.code);
     auth.signInWithRedirect(googleProvider);
-  } else {
-    auth.signInWithPopup(googleProvider).catch(err => console.error('Sign-in error:', err));
-  }
+  });
 });
 
 signoutBtn.addEventListener('click', () => auth.signOut());
