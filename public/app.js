@@ -37,7 +37,7 @@ const connectingStatus = document.getElementById('connecting-status');
 // Call refs
 const hangupBtn = document.getElementById('hangup-btn');
 const muteBtn = document.getElementById('mute-btn');
-const speakerBtn = document.getElementById('speaker-btn');
+// speaker button removed
 
 // --- State ---
 let currentUser = null;
@@ -432,7 +432,6 @@ muteBtn.addEventListener('click', () => {
   muteBtn.style.color = isMuted ? 'white' : '';
 });
 
-speakerBtn.addEventListener('click', () => speakerBtn.classList.toggle('active'));
 
 socket.on('partner-hung-up', () => {
   cleanUpCall();
