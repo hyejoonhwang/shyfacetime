@@ -170,14 +170,16 @@ document.querySelectorAll('.nav-item').forEach(item => {
   });
 });
 
-// Logo click → about page
-const logoLink = document.getElementById('logo-link');
-if (logoLink) {
-  logoLink.addEventListener('click', (e) => {
-    e.preventDefault();
-    showView('about');
-  });
-}
+// Logo click → about page (both desktop sidebar and mobile topbar)
+['logo-link', 'logo-link-mobile'].forEach(id => {
+  const el = document.getElementById(id);
+  if (el) {
+    el.addEventListener('click', (e) => {
+      e.preventDefault();
+      showView('about');
+    });
+  }
+});
 
 // ============================================================
 // 1. FIREBASE AUTH

@@ -442,6 +442,25 @@ body {
   gap: 12px;
 }
 
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.topbar-logo-mobile {
+  display: none;
+  text-decoration: none;
+}
+
+.topbar-logo-icon {
+  width: 20px;
+  height: 20px;
+  color: var(--brand);
+  fill: var(--brand);
+  filter: blur(1.5px);
+}
+
 .hamburger {
   display: none;
   background: none;
@@ -1111,18 +1130,22 @@ body {
     grid-template-columns: 1fr;
   }
 
-  /* Hamburger visible on mobile */
+  /* Hamburger + mobile logo visible */
   .hamburger { display: block; }
+  .topbar-logo-mobile { display: block; }
 
-  /* Sidebar: hidden by default, slides in as overlay */
+  /* Sidebar: slides in from right */
   #sidebar {
     position: fixed;
-    top: 0; left: 0;
+    top: 0; right: 0;
+    left: auto;
     width: var(--sidebar-w);
     height: 100vh;
     z-index: 100;
-    transform: translateX(-100%);
+    transform: translateX(100%);
     transition: transform 0.25s ease;
+    border-right: none;
+    border-left: 1px solid var(--border);
   }
   #sidebar.open {
     transform: translateX(0);
@@ -1131,6 +1154,9 @@ body {
     display: block;
   }
   .sidebar-collapsed .nav-label { display: inline; }
+
+  /* Hide logo in sidebar on mobile (it's in the topbar) */
+  #sidebar .sidebar-logo { display: none; }
 
   /* All views: no scroll */
   .view, #content, .waiting-content, .echoes-layout, .mirror-layout { overflow: hidden; }
