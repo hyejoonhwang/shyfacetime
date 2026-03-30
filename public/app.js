@@ -186,15 +186,28 @@ auth.onAuthStateChanged((user) => {
     myName = user.displayName || 'Anonymous';
     myPhoto_url = user.photoURL || '';
     sidebarName.textContent = myName.toLowerCase();
-    loginScreen.classList.remove('active');
-    appShell.classList.remove('hidden');
+    // Fade: login out, shell in
+    loginScreen.style.opacity = '0';
+    loginScreen.style.pointerEvents = 'none';
+    setTimeout(() => {
+      loginScreen.classList.remove('active');
+      loginScreen.style.opacity = '';
+      loginScreen.style.pointerEvents = '';
+      appShell.classList.remove('hidden');
+      // Trigger fade-in on next frame
+      requestAnimationFrame(() => { appShell.style.opacity = '1'; });
+    }, 500);
     showView('waiting');
     socket.emit('join', { name: myName, photo: myPhoto_url });
   } else {
     currentUser = null;
     myName = '';
-    appShell.classList.add('hidden');
-    loginScreen.classList.add('active');
+    appShell.style.opacity = '0';
+    setTimeout(() => {
+      appShell.classList.add('hidden');
+      appShell.style.opacity = '';
+      loginScreen.classList.add('active');
+    }, 500);
   }
 });
 

@@ -80,7 +80,7 @@ body {
   z-index: 1;
 }
 
-.hidden { opacity: 0 !important; pointer-events: none !important; }
+.hidden { display: none !important; }
 
 /* ============================================
    BUTTONS
@@ -289,6 +289,7 @@ body {
 #app-shell {
   position: fixed;
   inset: 0;
+  opacity: 0;
   transition: opacity 0.6s ease;
   display: grid;
   grid-template-columns: var(--sidebar-w) 1fr;
